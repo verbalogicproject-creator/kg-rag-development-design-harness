@@ -1,0 +1,18 @@
+# Research ledger, mirrored from the harness database by aose.
+# verified.status is written only by `aose research-verify`.
+sources:
+  - url: https://arxiv.org/abs/2510.12702
+    kind: arxiv
+    title: "Beyond Postconditions: Can Large Language Models Infer Formal Contracts
+      from Natural Language?"
+    claim: Generating preconditions alongside postconditions reduces false alarms
+      when the resulting contracts are checked by a verifier.
+    confidence: medium
+    supports:
+      - DEC-02
+    verified:
+      status: verified
+      fetched_title: "Beyond Postconditions: Can Large Language Models infer Formal
+        Contracts for Automatic Software Verification?"
+      checked_at: 2026-09-04T22:23:31.631Z
+      detail: arXiv title similarity 0.64.

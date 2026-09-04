@@ -1,0 +1,462 @@
+meta:
+  slug: tictactoe
+  format: aose-blueprint/v2
+  generated_at: 2026-09-04T22:24:05.212Z
+constitution:
+  name: TicTacToe-Vanilla-ES6
+  version: 1
+  stack:
+    - node24
+    - esm
+    - vanilla-es6
+    - no-runtime-dependencies
+  articles:
+    - id: ART-01
+      title: Immutable transitions
+      rule: Domain state objects are never mutated in place; a transition returns a
+        new object.
+      enforcement: review
+    - id: ART-02
+      title: Errors are values
+      rule: A state transition reports failure by returning a discriminated result or
+        an Error value, never by throwing.
+      enforcement: lint
+    - id: ART-03
+      title: Pure core
+      rule: The game engine performs no DOM access, no I/O and no network calls.
+      enforcement: review
+    - id: ART-04
+      title: Every scenario is a named test
+      rule: Each verification scenario maps to exactly one test whose name matches the
+        scenario's test_name.
+      enforcement: gate
+    - id: ART-05
+      title: No runtime dependencies
+      rule: The shipped game runs from static files with no package installation.
+      enforcement: review
+  budgets:
+    max_attempts: 2
+    max_respec: 2
+    timeout_minutes: 15
+    max_payload_tokens: 4000
+idea:
+  title: Tic-Tac-Toe (vanilla ES6, unbeatable AI)
+  goal: A dependency-free browser tic-tac-toe with a pure rules engine and an
+    unbeatable minimax opponent.
+  audience: Mobile and desktop browser users playing offline
+  seed_author: human
+  scope_class: architectural
+  success_criteria:
+    - WHEN a player selects an empty cell THE SYSTEM SHALL place their mark and
+      pass the turn to the other player.
+    - WHEN a player selects an occupied cell THE SYSTEM SHALL reject the move
+      and leave the board unchanged.
+    - WHEN three marks of one player align THE SYSTEM SHALL declare that player
+      the winner and highlight the winning line.
+    - WHEN the board fills with no alignment THE SYSTEM SHALL declare a draw.
+    - WHILE the opponent is the computer THE SYSTEM SHALL never lose a game.
+  non_goals:
+    - Online or networked multiplayer
+    - Accounts, persistence across sessions, or a backend
+  constraints:
+    - No runtime dependencies; the game runs from static files
+    - The rules engine must be testable without a browser
+  open_questions: []
+  alternatives_considered:
+    - option: Couple the rules directly to DOM event handlers
+      rejected_because: The rules would only be testable through a browser, and the AI
+        could not be searched over cheaply.
+    - option: Represent the board as a 3x3 nested array
+      rejected_because: A flat 9-cell array makes the eight winning lines a constant
+        table and removes index arithmetic bugs.
+  elicitation:
+    - challenge: Minimax over an empty board explores 9! states. Is that acceptable in
+        a browser on first move?
+      response: The reachable game tree is about 550k nodes and completes in
+        milliseconds; alpha-beta pruning and a depth penalty keep it well inside
+        a frame budget.
+    - challenge: If the engine returns Error values instead of throwing, will callers
+        silently ignore failures?
+      response: The UI branches on the returned value before rendering, and a scenario
+        asserts that an occupied-cell move leaves the board unchanged.
+    - challenge: Why split ui/client from core/engine at all for a game this small?
+      response: The split is what makes the engine testable headlessly and lets the AI
+        search reuse the same transition function the UI uses.
+sources:
+  - url: https://arxiv.org/abs/2510.12702
+    kind: arxiv
+    title: "Beyond Postconditions: Can Large Language Models Infer Formal Contracts
+      from Natural Language?"
+    claim: Generating preconditions alongside postconditions reduces false alarms
+      when the resulting contracts are checked by a verifier.
+    confidence: medium
+    supports:
+      - DEC-02
+    verified:
+      status: verified
+      fetched_title: "Beyond Postconditions: Can Large Language Models infer Formal
+        Contracts for Automatic Software Verification?"
+      checked_at: 2026-09-04T22:23:31.631Z
+      detail: arXiv title similarity 0.64.
+manifest:
+  system:
+    name: TicTacToe-Vanilla-ES6
+    constitution: constitution.yaml
+    scope_class: architectural
+    boundaries:
+      - domain: core/engine
+        responsibility: Deterministic pure state transitions, win detection and minimax
+          search. No I/O, no DOM.
+        depends_on: []
+        exports:
+          - LINES
+          - init
+          - checkWinner
+          - playMove
+          - getBestMove
+        spec: core.engine.spec.yaml
+        task: core.engine.task.yaml
+      - domain: ui/client
+        responsibility: Render engine state to the DOM, bind player input, drive the AI turn.
+        depends_on:
+          - core/engine
+        exports:
+          - mount
+          - render
+          - handleClick
+          - handleReset
+        spec: ui.client.spec.yaml
+        task: ui.client.task.yaml
+  invariants:
+    - ART-01
+    - ART-02
+    - ART-03
+    - ART-04
+    - ART-05
+  decisions:
+    - id: DEC-01
+      statement: Keep the rules engine independent of the DOM and expose it as pure
+        functions.
+      rationale: A pure engine is deterministically testable without a browser and can
+        be reused directly by the minimax search.
+      alternatives:
+        - Couple rules to DOM event handlers
+      sources: []
+    - id: DEC-02
+      statement: Contracts declare preconditions and postconditions, not just signatures.
+      rationale: Generating preconditions alongside postconditions measurably reduces
+        verifier false alarms, so both are required of every contract.
+      alternatives:
+        - Postconditions only
+        - Prose descriptions only
+      sources:
+        - https://arxiv.org/abs/2510.12702
+    - id: DEC-03
+      statement: Represent the board as a flat 9-cell array with a constant table of
+        the eight winning lines.
+      rationale: It removes index arithmetic from win detection, which is where
+        hand-written implementations usually drop a diagonal.
+      alternatives:
+        - 3x3 nested array
+        - Bitboards
+      sources: []
+specs:
+  core/engine:
+    module: core/engine
+    runtime: esm-only, node24, browser
+    requirements:
+      - id: REQ-01
+        ears: WHEN a move targets an empty cell on an unfinished board THE SYSTEM SHALL
+          return a new state with that cell marked and the turn passed to the
+          other player.
+        verified_by:
+          - SC-01
+      - id: REQ-02
+        ears: WHEN a move targets an occupied cell, an out-of-range index, or a finished
+          game THE SYSTEM SHALL return an Error and leave the input state
+          unchanged.
+        verified_by:
+          - SC-02
+          - SC-03
+          - SC-04
+      - id: REQ-03
+        ears: WHEN three cells of one player align THE SYSTEM SHALL report that player
+          as the winner together with the aligned line.
+        verified_by:
+          - SC-05
+          - SC-06
+      - id: REQ-04
+        ears: WHEN every cell is filled and no line aligns THE SYSTEM SHALL report a
+          draw.
+        verified_by:
+          - SC-07
+      - id: REQ-05
+        ears: WHILE selecting a move for the computer THE SYSTEM SHALL choose an outcome
+          no worse than a draw against every reply.
+        verified_by:
+          - SC-08
+          - SC-09
+          - SC-10
+    types: >
+      type Player = 'X' | 'O';
+
+      type Cell = Player | null;
+
+      type Board = Cell[];                       // exactly 9 entries, indices
+      0..8
+
+      type GameStatus = 'IN_PROGRESS' | 'WIN' | 'DRAW';
+
+      type Line = [number, number, number];
+
+      interface Scores { X: number; O: number; draws: number }
+
+      interface State {
+        readonly board: Board;
+        readonly turn: Player;
+        readonly status: GameStatus;
+        readonly winner: Player | null;
+        readonly winningLine: Line | null;
+        readonly scores: Scores;
+      }
+
+      interface WinCheck { winner: Player | null; line: Line | null; isDraw:
+      boolean }
+    contracts:
+      "init(scores: Scores): State":
+        kind: query
+        precondition: Scores are non-negative integers, or omitted to start at zero.
+        postcondition: Returns an empty board, turn 'X', status 'IN_PROGRESS', no winner
+          and the supplied scores carried forward.
+        errors: []
+      "checkWinner(board: Board): WinCheck":
+        kind: query
+        precondition: Board has exactly 9 cells.
+        postcondition: Returns the winner and the aligned line when one of the eight
+          lines is uniformly marked, otherwise isDraw is true only when no cell
+          is null.
+        errors: []
+      "playMove(state: State, index: number): State | Error":
+        kind: transition
+        precondition: 0 <= index <= 8, state.board[index] is null, and state.status is
+          'IN_PROGRESS'.
+        postcondition: Returns a new State with the cell marked, the turn alternated,
+          status and winner recomputed and the score incremented on a terminal
+          result. The input state is never mutated. Returns an Error whose
+          message names the violated precondition when the move is illegal.
+        errors: []
+      "getBestMove(board: Board, aiPlayer: Player): number":
+        kind: query
+        precondition: Board has at least one empty cell and the game is not already won.
+        postcondition: Returns the index of a move that is optimal under minimax with a
+          depth penalty, so a faster win is preferred to a slower one.
+        errors: []
+        algorithm: minimax over the flat board, terminal scoring +10 for the AI, -10 for
+          the opponent, 0 for a draw, each reduced by search depth
+    verification:
+      test_suite: test/engine.test.js
+      scenarios:
+        - id: SC-01
+          given: an empty board
+          when: X plays a legal cell
+          then: a new state is returned with the cell marked, the turn passed to O, and
+            the original state untouched
+          test_name: immutably updates board and alternates turn
+        - id: SC-02
+          given: a board with a marked cell
+          when: a move targets that cell
+          then: an Error is returned
+          test_name: returns an Error when playing on an occupied cell
+        - id: SC-03
+          given: any board
+          when: a move targets an index outside 0..8
+          then: an Error is returned
+          test_name: returns an Error when index is invalid or out of bounds
+        - id: SC-04
+          given: a finished game
+          when: any further move is attempted
+          then: an Error is returned
+          test_name: returns an Error when game is already finished
+        - id: SC-05
+          given: each of the eight winning lines in turn
+          when: the line is completed
+          then: the winner and that line are reported and the winner's score increments
+          test_name: correctly records a WIN and increments winner score
+        - id: SC-06
+          given: the constant line table
+          when: it is inspected
+          then: all eight rows, columns and diagonals are present
+          test_name: should define all 8 winning line combinations
+        - id: SC-07
+          given: a full board with no aligned line
+          when: the final move is played
+          then: the status is DRAW and the draw counter increments
+          test_name: correctly records a DRAW and increments draws score
+        - id: SC-08
+          given: a board where the AI can win this turn
+          when: the best move is computed
+          then: the winning cell is chosen
+          test_name: takes an immediate winning move
+        - id: SC-09
+          given: a board where the opponent would win next turn
+          when: the best move is computed
+          then: the threatening cell is taken
+          test_name: blocks an immediate winning move of the opponent
+        - id: SC-10
+          given: an empty board
+          when: the AI plays itself to completion
+          then: the game always ends in a draw
+          test_name: "minimax tie: AI vs AI self-play from initial board always ends in a
+            DRAW"
+  ui/client:
+    module: ui/client
+    runtime: esm-only, browser, testable under node24 with a DOM double
+    requirements:
+      - id: REQ-01
+        ears: WHEN the client mounts THE SYSTEM SHALL create nine addressable cell
+          controls indexed 0 to 8.
+        verified_by:
+          - SC-01
+      - id: REQ-02
+        ears: WHEN engine state changes THE SYSTEM SHALL render the board, the turn
+          indicator and the disabled state of every cell from that state alone.
+        verified_by:
+          - SC-02
+      - id: REQ-03
+        ears: WHEN a game ends in a win THE SYSTEM SHALL highlight the three winning
+          cells.
+        verified_by:
+          - SC-03
+      - id: REQ-04
+        ears: IF a click targets an occupied cell or a finished game THE SYSTEM SHALL
+          ignore it.
+        verified_by:
+          - SC-04
+      - id: REQ-05
+        ears: WHILE the opponent is the computer THE SYSTEM SHALL play the computer's
+          reply after the player's move.
+        verified_by:
+          - SC-05
+      - id: REQ-06
+        ears: WHEN the player resets THE SYSTEM SHALL clear the board and any
+          winning-line highlight while keeping the running scores.
+        verified_by:
+          - SC-06
+    types: |
+      type Mode = 'ai' | 'pvp';
+      type RenderResult = { ok: true } | { ok: false; error: 'NOT_MOUNTED' };
+      interface ClientState { mode: Mode; mounted: boolean }
+    contracts:
+      "mount(root: HTMLElement): RenderResult":
+        kind: transition
+        precondition: root is an element present in the document and not already mounted.
+        postcondition: Nine button cells carrying data-idx 0..8 exist under root and
+          input handlers are bound. Returns an error result when root is absent.
+        errors:
+          - NOT_MOUNTED
+      "render(state: State): RenderResult":
+        kind: transition
+        precondition: The client is mounted and state is a valid engine State.
+        postcondition: Every cell's text, disabled flag and winning-cell class, plus the
+          status line, match the supplied state exactly. Nothing is read from
+          the DOM to decide what to draw.
+        errors:
+          - NOT_MOUNTED
+      "handleClick(event: Event): void":
+        kind: query
+        precondition: The event originates from a mounted cell control.
+        postcondition: A legal move advances the engine and re-renders; an illegal move
+          changes nothing. In AI mode the computer's reply follows.
+        errors: []
+      "handleReset(): void":
+        kind: query
+        precondition: The client is mounted.
+        postcondition: The board returns to the initial state with scores preserved and
+          any winning-line highlight cleared.
+        errors: []
+    verification:
+      test_suite: test/main.test.js
+      scenarios:
+        - id: SC-01
+          given: a fresh root element
+          when: the client mounts
+          then: nine cells numbered 0 to 8 exist
+          test_name: mount() creates 9 button cells with data-idx 0..8
+        - id: SC-02
+          given: an arbitrary engine state
+          when: it is rendered
+          then: cell text, disabled flags and the status line match that state
+          test_name: render() syncs board state, disabled attributes, and status
+        - id: SC-03
+          given: a won game
+          when: it is rendered
+          then: the three winning cells are highlighted
+          test_name: render() highlights winning cells and updates win-line SVG
+            coordinates
+        - id: SC-04
+          given: an occupied cell or a finished game
+          when: the cell is clicked
+          then: nothing changes
+          test_name: handleClick() guards if cell is already occupied or game is won
+        - id: SC-05
+          given: AI mode after the player moves
+          when: the turn passes
+          then: the computer plays its reply
+          test_name: in AI mode, AI responds automatically after player move
+        - id: SC-06
+          given: a board mid-game
+          when: reset is triggered
+          then: the board clears and the winning line is removed
+          test_name: handleReset() resets board and clears winning line
+tasks:
+  core/engine:
+    target_module: core/engine
+    context:
+      constitution_articles:
+        - ART-01
+        - ART-02
+        - ART-03
+        - ART-04
+      spec: core.engine.spec.yaml
+      upstream_exports: {}
+    deliverables:
+      - engine.js
+      - test/engine.test.js
+    execution_gate:
+      command: node --test test/engine.test.js
+      success_criteria: Exit code 0 with one passing test per verification scenario,
+        each named exactly as the scenario's test_name.
+      timeout_minutes: 10
+    budget:
+      max_attempts: 2
+  ui/client:
+    target_module: ui/client
+    context:
+      constitution_articles:
+        - ART-01
+        - ART-02
+        - ART-04
+        - ART-05
+      spec: ui.client.spec.yaml
+      upstream_exports:
+        core/engine:
+          - LINES
+          - init
+          - checkWinner
+          - playMove
+          - getBestMove
+    deliverables:
+      - main.js
+      - index.html
+      - style.css
+      - test/main.test.js
+    execution_gate:
+      command: node --test test/main.test.js
+      success_criteria: Exit code 0 with one passing test per verification scenario,
+        using a DOM double rather than a real browser.
+      timeout_minutes: 10
+    budget:
+      max_attempts: 2
+topo_order:
+  - core/engine
+  - ui/client

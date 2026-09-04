@@ -1,0 +1,77 @@
+module: ui/client
+runtime: esm-only, browser, testable under node24 with a DOM double
+requirements:
+  - id: REQ-01
+    ears: WHEN the client mounts THE SYSTEM SHALL create nine addressable cell controls indexed 0 to 8.
+    verified_by: [SC-01]
+  - id: REQ-02
+    ears: WHEN engine state changes THE SYSTEM SHALL render the board, the turn indicator and the disabled state of every cell from that state alone.
+    verified_by: [SC-02]
+  - id: REQ-03
+    ears: WHEN a game ends in a win THE SYSTEM SHALL highlight the three winning cells.
+    verified_by: [SC-03]
+  - id: REQ-04
+    ears: IF a click targets an occupied cell or a finished game THE SYSTEM SHALL ignore it.
+    verified_by: [SC-04]
+  - id: REQ-05
+    ears: WHILE the opponent is the computer THE SYSTEM SHALL play the computer's reply after the player's move.
+    verified_by: [SC-05]
+  - id: REQ-06
+    ears: WHEN the player resets THE SYSTEM SHALL clear the board and any winning-line highlight while keeping the running scores.
+    verified_by: [SC-06]
+types: |
+  type Mode = 'ai' | 'pvp';
+  type RenderResult = { ok: true } | { ok: false; error: 'NOT_MOUNTED' };
+  interface ClientState { mode: Mode; mounted: boolean }
+contracts:
+  "mount(root: HTMLElement): RenderResult":
+    kind: transition
+    precondition: root is an element present in the document and not already mounted.
+    postcondition: Nine button cells carrying data-idx 0..8 exist under root and input handlers are bound. Returns an error result when root is absent.
+    errors: [NOT_MOUNTED]
+  "render(state: State): RenderResult":
+    kind: transition
+    precondition: The client is mounted and state is a valid engine State.
+    postcondition: Every cell's text, disabled flag and winning-cell class, plus the status line, match the supplied state exactly. Nothing is read from the DOM to decide what to draw.
+    errors: [NOT_MOUNTED]
+  "handleClick(event: Event): void":
+    kind: query
+    precondition: The event originates from a mounted cell control.
+    postcondition: A legal move advances the engine and re-renders; an illegal move changes nothing. In AI mode the computer's reply follows.
+  "handleReset(): void":
+    kind: query
+    precondition: The client is mounted.
+    postcondition: The board returns to the initial state with scores preserved and any winning-line highlight cleared.
+verification:
+  test_suite: test/main.test.js
+  scenarios:
+    - id: SC-01
+      given: a fresh root element
+      when: the client mounts
+      then: nine cells numbered 0 to 8 exist
+      test_name: mount() creates 9 button cells with data-idx 0..8
+    - id: SC-02
+      given: an arbitrary engine state
+      when: it is rendered
+      then: cell text, disabled flags and the status line match that state
+      test_name: render() syncs board state, disabled attributes, and status
+    - id: SC-03
+      given: a won game
+      when: it is rendered
+      then: the three winning cells are highlighted
+      test_name: render() highlights winning cells and updates win-line SVG coordinates
+    - id: SC-04
+      given: an occupied cell or a finished game
+      when: the cell is clicked
+      then: nothing changes
+      test_name: handleClick() guards if cell is already occupied or game is won
+    - id: SC-05
+      given: AI mode after the player moves
+      when: the turn passes
+      then: the computer plays its reply
+      test_name: in AI mode, AI responds automatically after player move
+    - id: SC-06
+      given: a board mid-game
+      when: reset is triggered
+      then: the board clears and the winning line is removed
+      test_name: handleReset() resets board and clears winning line

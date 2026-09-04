@@ -1,0 +1,34 @@
+# Brainstorm output. seed_author records who framed the problem: LLM-first
+# ideation is associated with weaker independent design exploration
+# (arXiv:2410.03703), so the human seed is recorded as a first-class fact.
+idea:
+  title: Tic-Tac-Toe (vanilla ES6, unbeatable AI)
+  goal: A dependency-free browser tic-tac-toe with a pure rules engine and an unbeatable minimax opponent.
+  audience: Mobile and desktop browser users playing offline
+  seed_author: human
+  scope_class: architectural
+  success_criteria:
+    - WHEN a player selects an empty cell THE SYSTEM SHALL place their mark and pass the turn to the other player.
+    - WHEN a player selects an occupied cell THE SYSTEM SHALL reject the move and leave the board unchanged.
+    - WHEN three marks of one player align THE SYSTEM SHALL declare that player the winner and highlight the winning line.
+    - WHEN the board fills with no alignment THE SYSTEM SHALL declare a draw.
+    - WHILE the opponent is the computer THE SYSTEM SHALL never lose a game.
+  non_goals:
+    - Online or networked multiplayer
+    - Accounts, persistence across sessions, or a backend
+  constraints:
+    - No runtime dependencies; the game runs from static files
+    - The rules engine must be testable without a browser
+  open_questions: []
+  alternatives_considered:
+    - option: Couple the rules directly to DOM event handlers
+      rejected_because: The rules would only be testable through a browser, and the AI could not be searched over cheaply.
+    - option: Represent the board as a 3x3 nested array
+      rejected_because: A flat 9-cell array makes the eight winning lines a constant table and removes index arithmetic bugs.
+  elicitation:
+    - challenge: Minimax over an empty board explores 9! states. Is that acceptable in a browser on first move?
+      response: The reachable game tree is about 550k nodes and completes in milliseconds; alpha-beta pruning and a depth penalty keep it well inside a frame budget.
+    - challenge: If the engine returns Error values instead of throwing, will callers silently ignore failures?
+      response: The UI branches on the returned value before rendering, and a scenario asserts that an occupied-cell move leaves the board unchanged.
+    - challenge: Why split ui/client from core/engine at all for a game this small?
+      response: The split is what makes the engine testable headlessly and lets the AI search reuse the same transition function the UI uses.

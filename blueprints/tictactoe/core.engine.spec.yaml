@@ -1,0 +1,105 @@
+module: core/engine
+runtime: esm-only, node24, browser
+requirements:
+  - id: REQ-01
+    ears: WHEN a move targets an empty cell on an unfinished board THE SYSTEM SHALL return a new state with that cell marked and the turn passed to the other player.
+    verified_by: [SC-01]
+  - id: REQ-02
+    ears: WHEN a move targets an occupied cell, an out-of-range index, or a finished game THE SYSTEM SHALL return an Error and leave the input state unchanged.
+    verified_by: [SC-02, SC-03, SC-04]
+  - id: REQ-03
+    ears: WHEN three cells of one player align THE SYSTEM SHALL report that player as the winner together with the aligned line.
+    verified_by: [SC-05, SC-06]
+  - id: REQ-04
+    ears: WHEN every cell is filled and no line aligns THE SYSTEM SHALL report a draw.
+    verified_by: [SC-07]
+  - id: REQ-05
+    ears: WHILE selecting a move for the computer THE SYSTEM SHALL choose an outcome no worse than a draw against every reply.
+    verified_by: [SC-08, SC-09, SC-10]
+types: |
+  type Player = 'X' | 'O';
+  type Cell = Player | null;
+  type Board = Cell[];                       // exactly 9 entries, indices 0..8
+  type GameStatus = 'IN_PROGRESS' | 'WIN' | 'DRAW';
+  type Line = [number, number, number];
+  interface Scores { X: number; O: number; draws: number }
+  interface State {
+    readonly board: Board;
+    readonly turn: Player;
+    readonly status: GameStatus;
+    readonly winner: Player | null;
+    readonly winningLine: Line | null;
+    readonly scores: Scores;
+  }
+  interface WinCheck { winner: Player | null; line: Line | null; isDraw: boolean }
+contracts:
+  "init(scores: Scores): State":
+    kind: query
+    precondition: Scores are non-negative integers, or omitted to start at zero.
+    postcondition: Returns an empty board, turn 'X', status 'IN_PROGRESS', no winner and the supplied scores carried forward.
+  "checkWinner(board: Board): WinCheck":
+    kind: query
+    precondition: Board has exactly 9 cells.
+    postcondition: Returns the winner and the aligned line when one of the eight lines is uniformly marked, otherwise isDraw is true only when no cell is null.
+  "playMove(state: State, index: number): State | Error":
+    kind: transition
+    precondition: 0 <= index <= 8, state.board[index] is null, and state.status is 'IN_PROGRESS'.
+    postcondition: Returns a new State with the cell marked, the turn alternated, status and winner recomputed and the score incremented on a terminal result. The input state is never mutated. Returns an Error whose message names the violated precondition when the move is illegal.
+  "getBestMove(board: Board, aiPlayer: Player): number":
+    kind: query
+    precondition: Board has at least one empty cell and the game is not already won.
+    postcondition: Returns the index of a move that is optimal under minimax with a depth penalty, so a faster win is preferred to a slower one.
+    algorithm: minimax over the flat board, terminal scoring +10 for the AI, -10 for the opponent, 0 for a draw, each reduced by search depth
+verification:
+  test_suite: test/engine.test.js
+  scenarios:
+    - id: SC-01
+      given: an empty board
+      when: X plays a legal cell
+      then: a new state is returned with the cell marked, the turn passed to O, and the original state untouched
+      test_name: immutably updates board and alternates turn
+    - id: SC-02
+      given: a board with a marked cell
+      when: a move targets that cell
+      then: an Error is returned
+      test_name: returns an Error when playing on an occupied cell
+    - id: SC-03
+      given: any board
+      when: a move targets an index outside 0..8
+      then: an Error is returned
+      test_name: returns an Error when index is invalid or out of bounds
+    - id: SC-04
+      given: a finished game
+      when: any further move is attempted
+      then: an Error is returned
+      test_name: returns an Error when game is already finished
+    - id: SC-05
+      given: each of the eight winning lines in turn
+      when: the line is completed
+      then: the winner and that line are reported and the winner's score increments
+      test_name: correctly records a WIN and increments winner score
+    - id: SC-06
+      given: the constant line table
+      when: it is inspected
+      then: all eight rows, columns and diagonals are present
+      test_name: should define all 8 winning line combinations
+    - id: SC-07
+      given: a full board with no aligned line
+      when: the final move is played
+      then: the status is DRAW and the draw counter increments
+      test_name: correctly records a DRAW and increments draws score
+    - id: SC-08
+      given: a board where the AI can win this turn
+      when: the best move is computed
+      then: the winning cell is chosen
+      test_name: takes an immediate winning move
+    - id: SC-09
+      given: a board where the opponent would win next turn
+      when: the best move is computed
+      then: the threatening cell is taken
+      test_name: blocks an immediate winning move of the opponent
+    - id: SC-10
+      given: an empty board
+      when: the AI plays itself to completion
+      then: the game always ends in a draw
+      test_name: "minimax tie: AI vs AI self-play from initial board always ends in a DRAW"

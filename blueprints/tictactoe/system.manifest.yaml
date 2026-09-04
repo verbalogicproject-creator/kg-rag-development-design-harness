@@ -1,0 +1,37 @@
+# Topology, dependency DAG and the invariants each domain inherits.
+# Structure from the Antigravity triad; invariants now reference constitution
+# articles by id so the linter can check them instead of reading prose.
+system:
+  name: TicTacToe-Vanilla-ES6
+  constitution: constitution.yaml
+  scope_class: architectural
+  boundaries:
+    - domain: core/engine
+      responsibility: Deterministic pure state transitions, win detection and minimax search. No I/O, no DOM.
+      depends_on: []
+      exports: [LINES, init, checkWinner, playMove, getBestMove]
+      spec: core.engine.spec.yaml
+      task: core.engine.task.yaml
+    - domain: ui/client
+      responsibility: Render engine state to the DOM, bind player input, drive the AI turn.
+      depends_on: [core/engine]
+      exports: [mount, render, handleClick, handleReset]
+      spec: ui.client.spec.yaml
+      task: ui.client.task.yaml
+invariants: [ART-01, ART-02, ART-03, ART-04, ART-05]
+decisions:
+  - id: DEC-01
+    statement: Keep the rules engine independent of the DOM and expose it as pure functions.
+    rationale: A pure engine is deterministically testable without a browser and can be reused directly by the minimax search.
+    alternatives: [Couple rules to DOM event handlers]
+    sources: []
+  - id: DEC-02
+    statement: Contracts declare preconditions and postconditions, not just signatures.
+    rationale: Generating preconditions alongside postconditions measurably reduces verifier false alarms, so both are required of every contract.
+    alternatives: [Postconditions only, Prose descriptions only]
+    sources: [https://arxiv.org/abs/2510.12702]
+  - id: DEC-03
+    statement: Represent the board as a flat 9-cell array with a constant table of the eight winning lines.
+    rationale: It removes index arithmetic from win detection, which is where hand-written implementations usually drop a diagonal.
+    alternatives: [3x3 nested array, Bitboards]
+    sources: []

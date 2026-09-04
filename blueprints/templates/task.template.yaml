@@ -1,0 +1,17 @@
+# The whole context a cold worker receives. Keep it small: everything here is
+# sent verbatim, and the payload has a token budget (LINT-24).
+task:
+  target_module: <domain/name>
+  context:
+    constitution_articles: [ART-01]
+    spec: <domain>.spec.yaml
+    upstream_exports: {}          # derived by `aose compile`; do not hand-edit
+  deliverables:
+    - src/<domain>/index.js
+    - test/<domain>.test.js
+  execution_gate:
+    command: node --test test/<domain>.test.js
+    success_criteria: Exit code 0 with one passing test per verification scenario.
+    timeout_minutes: 10
+  budget:
+    max_attempts: 2

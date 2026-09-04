@@ -1,0 +1,16 @@
+# Project non-negotiables every artifact is checked against.
+# Pattern: github/spec-kit's "constitution".
+constitution:
+  name: <System-Name>
+  version: 1
+  stack: [<runtime>, <package-manager>, <conventions>]
+  articles:
+    - id: ART-01
+      title: <short name>
+      rule: <one rule, stated so a reviewer or a linter can check it>
+      enforcement: lint   # lint | gate | review
+  budgets:
+    max_attempts: 2        # cold-dispatch attempts per domain before BLOCKED
+    max_respec: 2          # times a blocked project may return to compile
+    timeout_minutes: 15    # per attempt
+    max_payload_tokens: 4000

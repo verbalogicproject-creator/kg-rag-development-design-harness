@@ -1,0 +1,36 @@
+# Input shortcut for scope_class spike or bounded: the original condensed
+# five-plane format. `aose compile` expands it into the canonical triad, so a
+# small job never has to be written twice. Anything with more than one module
+# should be authored as a triad instead (LINT-25).
+meta:
+  name: <name>
+  module: core/main
+  runtime: [node24, esm]
+  entry: index.js
+files:
+  index.js: <what this file contains>
+  test/index.test.js: <the test suite>
+types: |
+  type Result<T, E extends string = string> =
+    | { ok: true; value: T }
+    | { ok: false; error: E };
+contracts:
+  "run(input: Input): Result<Output>":
+    kind: transition
+    precondition: <...>
+    postcondition: <...>
+requirements:
+  - id: REQ-01
+    ears: WHEN <trigger> THE SYSTEM SHALL <behaviour>.
+    verified_by: [SC-01]
+verification:
+  test_suite: test/index.test.js
+  scenarios:
+    - id: SC-01
+      given: <...>
+      when: <...>
+      then: <...>
+      test_name: <exact test name>
+execution_gate:
+  command: node --test
+  success_criteria: Exit code 0.

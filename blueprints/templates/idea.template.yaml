@@ -1,0 +1,21 @@
+# Brainstorm output. Seed this yourself before asking an agent to expand it:
+# LLM-first ideation is associated with weaker independent design exploration
+# (arXiv:2410.03703).
+idea:
+  title: <name>
+  goal: <one sentence>
+  audience: <who uses it>
+  seed_author: human        # human | agent
+  scope_class: bounded      # spike | bounded | architectural
+  success_criteria:
+    - WHEN <trigger> THE SYSTEM SHALL <observable behaviour>.
+  non_goals: []
+  constraints: []
+  open_questions: []        # must be empty before `aose ready`
+  # required when scope_class is architectural:
+  alternatives_considered:
+    - option: <what you did not do>
+      rejected_because: <why>
+  elicitation:
+    - challenge: <the hardest question against this plan>
+      response: <the answer, or the change you made>

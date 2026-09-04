@@ -1,0 +1,19 @@
+# Topology and dependency DAG. depends_on must stay acyclic (LINT-04).
+system:
+  name: <System-Name>
+  constitution: constitution.yaml
+  scope_class: bounded
+  boundaries:
+    - domain: core/<name>          # lowercase path segments
+      responsibility: <single responsibility>
+      depends_on: []
+      exports: [<names other domains may import>]
+      spec: core.<name>.spec.yaml
+      task: core.<name>.task.yaml
+invariants: [ART-01]               # article ids, not prose
+decisions:
+  - id: DEC-01
+    statement: <the decision>
+    rationale: <why>
+    alternatives: []
+    sources: []                    # every url here must be a verified ledger source

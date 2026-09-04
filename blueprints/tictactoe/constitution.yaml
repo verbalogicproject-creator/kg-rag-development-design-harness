@@ -1,0 +1,33 @@
+# Project non-negotiables. Every downstream artifact is checked against these.
+# Form borrowed from github/spec-kit's "constitution"; content is Antigravity's
+# shared_invariants promoted from a free-text list to addressable articles.
+constitution:
+  name: TicTacToe-Vanilla-ES6
+  version: 1
+  stack: [node24, esm, vanilla-es6, no-runtime-dependencies]
+  articles:
+    - id: ART-01
+      title: Immutable transitions
+      rule: Domain state objects are never mutated in place; a transition returns a new object.
+      enforcement: review
+    - id: ART-02
+      title: Errors are values
+      rule: A state transition reports failure by returning a discriminated result or an Error value, never by throwing.
+      enforcement: lint
+    - id: ART-03
+      title: Pure core
+      rule: The game engine performs no DOM access, no I/O and no network calls.
+      enforcement: review
+    - id: ART-04
+      title: Every scenario is a named test
+      rule: Each verification scenario maps to exactly one test whose name matches the scenario's test_name.
+      enforcement: gate
+    - id: ART-05
+      title: No runtime dependencies
+      rule: The shipped game runs from static files with no package installation.
+      enforcement: review
+  budgets:
+    max_attempts: 2
+    max_respec: 2
+    timeout_minutes: 15
+    max_payload_tokens: 4000

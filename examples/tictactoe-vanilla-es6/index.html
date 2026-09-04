@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TicTacToe - Vanilla ES6</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="app" class="game-container">
+    <header class="game-header">
+      <h1 class="game-title">Tic-Tac-Toe</h1>
+    </header>
+
+    <!-- Mode Selector: Minimax AI vs 2-Player Local -->
+    <nav class="mode-selector" aria-label="Game Mode Selection">
+      <button id="mode-ai" class="mode-btn active" type="button" data-mode="ai">vs Minimax AI</button>
+      <button id="mode-pvp" class="mode-btn" type="button" data-mode="pvp">2-Player Local</button>
+    </nav>
+
+    <!-- Scoreboard -->
+    <section class="scoreboard" aria-label="Scoreboard">
+      <div class="score-card player-x">
+        <span class="score-label" id="label-x">Player (X)</span>
+        <span class="score-value" id="score-x">0</span>
+      </div>
+      <div class="score-card ties">
+        <span class="score-label">Draws</span>
+        <span class="score-value" id="score-draws">0</span>
+      </div>
+      <div class="score-card player-o">
+        <span class="score-label" id="label-o">AI (O)</span>
+        <span class="score-value" id="score-o">0</span>
+      </div>
+    </section>
+
+    <!-- Turn / Game Status Display -->
+    <div id="status" role="status" aria-live="polite">Player X's Turn</div>
+
+    <!-- 3x3 Grid Board with SVG Win Line Overlay -->
+    <div class="board-wrapper">
+      <div id="grid" class="grid" role="grid" aria-label="Tic-Tac-Toe Board"></div>
+      <svg id="win-line-overlay" class="win-line-overlay" viewBox="0 0 300 300" aria-hidden="true">
+        <line id="win-line" class="win-line" x1="0" y1="0" x2="0" y2="0" />
+      </svg>
+    </div>
+
+    <!-- Actions -->
+    <footer class="game-controls">
+      <button id="reset" class="btn btn-primary" type="button">New Game</button>
+      <button id="reset-scores" class="btn btn-secondary" type="button">Reset Scores</button>
+    </footer>
+  </main>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>

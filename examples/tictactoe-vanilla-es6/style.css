@@ -1,0 +1,330 @@
+:root {
+  --bg-color: #0f172a;
+  --panel-bg: #1e293b;
+  --panel-border: #334155;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --border-color: #475569;
+  --cell-hover: #334155;
+  --cell-active: #1e293b;
+  
+  --x-color: #38bdf8;
+  --x-glow: rgba(56, 189, 248, 0.4);
+  --o-color: #f43f5e;
+  --o-glow: rgba(244, 63, 94, 0.4);
+  --win-line-color: #34d399;
+  --win-line-glow: rgba(52, 211, 153, 0.6);
+  --win-bg: rgba(52, 211, 153, 0.15);
+
+  --cell-size: 100px;
+  --board-size: calc(var(--cell-size) * 3);
+}
+
+@media (max-width: 480px) {
+  :root {
+    --cell-size: min(100px, 25vw);
+  }
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.game-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 1.25rem;
+  padding: 2rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+  max-width: 440px;
+  width: 100%;
+}
+
+.game-header {
+  text-align: center;
+}
+
+.game-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  background: linear-gradient(135deg, var(--x-color), var(--o-color));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.mode-selector {
+  display: flex;
+  background: #0f172a;
+  padding: 0.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--panel-border);
+  gap: 0.25rem;
+  width: 100%;
+}
+
+.mode-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mode-btn:hover:not(.active) {
+  color: var(--text-primary);
+}
+
+.mode-btn.active {
+  background: var(--panel-bg);
+  color: var(--text-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.scoreboard {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.score-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #0f172a;
+  border: 1px solid var(--panel-border);
+  border-radius: 0.75rem;
+  padding: 0.6rem 0.5rem;
+}
+
+.score-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+.score-card.player-x .score-label {
+  color: var(--x-color);
+}
+
+.score-card.player-o .score-label {
+  color: var(--o-color);
+}
+
+.score-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin-top: 0.25rem;
+}
+
+#status {
+  font-size: 1.15rem;
+  font-weight: 600;
+  min-height: 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+#status.win {
+  color: var(--win-line-color);
+  text-shadow: 0 0 12px var(--win-line-glow);
+}
+
+#status.draw {
+  color: #fbbf24;
+}
+
+/* Board & Grid Styling with Border Collapse */
+.board-wrapper {
+  position: relative;
+  width: var(--board-size);
+  height: var(--board-size);
+  margin: 0.5rem 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, var(--cell-size));
+  grid-template-rows: repeat(3, var(--cell-size));
+  width: var(--board-size);
+  height: var(--board-size);
+}
+
+.cell {
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(var(--cell-size) * 0.45);
+  font-weight: 800;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s ease, transform 0.15s ease;
+  position: relative;
+  outline: none;
+  padding: 0;
+
+  /* Border collapse layout for 3x3 Tic Tac Toe */
+  border-right: 3px solid var(--border-color);
+  border-bottom: 3px solid var(--border-color);
+  border-left: none;
+  border-top: none;
+}
+
+/* Collapse outer right border */
+.cell:nth-child(3n) {
+  border-right: none;
+}
+
+/* Collapse outer bottom border */
+.cell:nth-child(n + 7) {
+  border-bottom: none;
+}
+
+.cell:hover:not(:disabled):not([data-cell]) {
+  background-color: var(--cell-hover);
+}
+
+.cell:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--x-color);
+}
+
+.cell[data-cell="X"] {
+  color: var(--x-color);
+  text-shadow: 0 0 15px var(--x-glow);
+}
+
+.cell[data-cell="O"] {
+  color: var(--o-color);
+  text-shadow: 0 0 15px var(--o-glow);
+}
+
+.cell.winning-cell {
+  background-color: var(--win-bg);
+  animation: pulse-win 1s ease-in-out infinite alternate;
+}
+
+@keyframes pulse-win {
+  from {
+    transform: scale(1);
+    box-shadow: inset 0 0 8px var(--win-line-glow);
+  }
+  to {
+    transform: scale(1.04);
+    box-shadow: inset 0 0 16px var(--win-line-glow);
+  }
+}
+
+.cell:disabled {
+  cursor: default;
+}
+
+/* Win-line SVG Overlay */
+.win-line-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+  overflow: visible;
+}
+
+.win-line {
+  stroke: var(--win-line-color);
+  stroke-width: 6;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 6px var(--win-line-glow));
+  stroke-dasharray: 450;
+  stroke-dashoffset: 450;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.win-line.active {
+  opacity: 1;
+  animation: draw-win-line 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes draw-win-line {
+  from {
+    stroke-dashoffset: 450;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Controls */
+.game-controls {
+  display: flex;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.btn-primary {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background: #1d4ed8;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+
+.btn-secondary {
+  background: transparent;
+  border-color: var(--panel-border);
+  color: var(--text-secondary);
+}
+
+.btn-secondary:hover {
+  background: #0f172a;
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}

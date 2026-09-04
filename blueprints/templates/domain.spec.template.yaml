@@ -1,0 +1,27 @@
+module: <domain/name>
+runtime: <esm-only, node24, ...>
+requirements:
+  - id: REQ-01
+    ears: WHEN <trigger> THE SYSTEM SHALL <behaviour>.
+    verified_by: [SC-01]
+types: |
+  // Declare the domain's algebraic types here. If a contract returns Result<...>,
+  // define Result here too (LINT-09).
+  type DomainError = 'ERROR_CODE';
+  type Outcome =
+    | { ok: true; value: State }
+    | { ok: false; error: DomainError };
+contracts:
+  "doThing(state: State, input: Input): Outcome":
+    kind: transition            # transition | query
+    precondition: <what must hold before the call>
+    postcondition: <what is guaranteed after, including immutability>
+    errors: [ERROR_CODE]        # each must appear in the types block
+verification:
+  test_suite: test/<domain>.test.js
+  scenarios:
+    - id: SC-01
+      given: <starting state>
+      when: <action>
+      then: <observable result>
+      test_name: <the exact test name the worker must use>

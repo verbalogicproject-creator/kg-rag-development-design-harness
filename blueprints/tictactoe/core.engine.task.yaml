@@ -1,0 +1,21 @@
+# core.engine.task.yaml — normalized by aose compile. Edit the source artifacts, not this header.
+task:
+  target_module: core/engine
+  context:
+    constitution_articles:
+      - ART-01
+      - ART-02
+      - ART-03
+      - ART-04
+    spec: core.engine.spec.yaml
+    upstream_exports: {}
+  deliverables:
+    - engine.js
+    - test/engine.test.js
+  execution_gate:
+    command: node --test test/engine.test.js
+    success_criteria: Exit code 0 with one passing test per verification scenario,
+      each named exactly as the scenario's test_name.
+    timeout_minutes: 10
+  budget:
+    max_attempts: 2
