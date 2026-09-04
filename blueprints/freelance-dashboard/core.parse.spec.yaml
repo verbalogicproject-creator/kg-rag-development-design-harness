@@ -1,0 +1,86 @@
+module: core/parse
+runtime: esm-only, node24, browser
+requirements:
+  - id: REQ-01
+    ears: WHEN a pasted job post is parsed THE SYSTEM SHALL return the fields it recognized together with an explicit list of the fields it could not read.
+    verified_by: [SC-01, SC-02]
+  - id: REQ-02
+    ears: IF the post contains no recognizable title THE SYSTEM SHALL return a discriminated error rather than guessing one.
+    verified_by: [SC-03]
+  - id: REQ-03
+    ears: WHEN a rate is written in any of the common forms THE SYSTEM SHALL extract its amount and currency.
+    verified_by: [SC-04, SC-05]
+  - id: REQ-04
+    ears: WHEN a fixed budget is stated as a range THE SYSTEM SHALL record the lower bound and note that a range was given.
+    verified_by: [SC-06]
+  - id: REQ-05
+    ears: WHILE extracting skills THE SYSTEM SHALL return only terms that appear in the post, never terms inferred from context.
+    verified_by: [SC-07]
+types: |
+  import type { Opportunity, Money, Result } from '../core/opportunity';
+
+  type ParseError = 'NO_TITLE' | 'EMPTY_INPUT';
+  type Field = 'title' | 'budget' | 'hourlyRate' | 'skills' | 'postedAt' | 'url';
+
+  interface ParseOutcome {
+    readonly draft: Partial<Opportunity>;
+    readonly missing: readonly Field[];    // fields the parser could not read
+    readonly notes: readonly string[];     // e.g. "budget given as a range"
+  }
+contracts:
+  "parsePost(text: string, now: string): Result<ParseOutcome, ParseError>":
+    kind: transition
+    precondition: text is a string and now is an ISO 8601 timestamp.
+    postcondition: Returns a draft carrying only fields found verbatim in the text, plus every field it failed to read listed in missing. Returns EMPTY_INPUT for blank text and NO_TITLE when no title line can be identified. Never invents a value.
+    errors: [NO_TITLE, EMPTY_INPUT]
+  "parseRate(text: string): Money | null":
+    kind: query
+    precondition: text is a string.
+    postcondition: Returns the hourly rate with its currency when one is stated, and null when none is stated. Never returns a rate the text does not contain.
+  "parseBudget(text: string): Result<{ budget: Money; wasRange: boolean }, ParseError>":
+    kind: transition
+    precondition: text is a string.
+    postcondition: Returns the stated fixed budget, using the lower bound and flagging wasRange when a range is given. Returns an error when no budget is stated.
+    errors: [EMPTY_INPUT]
+  "extractSkills(text: string, vocabulary: readonly string[]): readonly string[]":
+    kind: query
+    precondition: vocabulary is a list of known skill terms, possibly empty.
+    postcondition: Returns the vocabulary terms that occur in the text, deduplicated and lowercased, in the order they first appear. Returns an empty array rather than guessing when nothing matches.
+verification:
+  test_suite: test/parse.test.js
+  scenarios:
+    - id: SC-01
+      given: a complete job post
+      when: it is parsed
+      then: title, rate and skills are extracted and missing is empty
+      test_name: extracts every stated field from a complete post
+    - id: SC-02
+      given: a post with no budget and no date
+      when: it is parsed
+      then: those fields are listed in missing rather than filled in
+      test_name: names the fields it could not read instead of inventing them
+    - id: SC-03
+      given: a body of text with no title line
+      when: it is parsed
+      then: a NO_TITLE error is returned
+      test_name: refuses to guess a title
+    - id: SC-04
+      given: a rate written as 85 dollars per hour
+      when: the rate is parsed
+      then: the amount and currency are returned
+      test_name: reads an hourly rate written in prose
+    - id: SC-05
+      given: text with no rate at all
+      when: the rate is parsed
+      then: null is returned
+      test_name: returns null rather than a default rate
+    - id: SC-06
+      given: a budget stated as a range
+      when: the budget is parsed
+      then: the lower bound is recorded and wasRange is true
+      test_name: records the lower bound of a budget range and flags it
+    - id: SC-07
+      given: a post mentioning two known skills and implying a third
+      when: skills are extracted
+      then: only the two stated skills are returned
+      test_name: extracts only skills the post actually names

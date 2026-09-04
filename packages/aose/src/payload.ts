@@ -23,10 +23,10 @@ export interface PayloadInput {
 
 export function buildPayload(input: PayloadInput): string {
   const { domain, attempt, maxAttempts, constitution, spec, task } = input;
-  const articles = (constitution?.constitution.articles ?? [])
-    .filter((article) => task.context.constitution_articles.includes(article.id));
+  const articles = (constitution?.constitution?.articles ?? [])
+    .filter((article) => (task.context.constitution_articles ?? []).includes(article.id));
 
-  const upstream = Object.entries(task.context.upstream_exports);
+  const upstream = Object.entries(task.context.upstream_exports ?? {});
   const sections: string[] = [];
 
   sections.push(`# AOSE cold task — ${domain} (attempt ${attempt} of ${maxAttempts})`);

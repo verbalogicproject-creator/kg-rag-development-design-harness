@@ -24,6 +24,10 @@ import { converge as convergeDomain, formatConverge } from './converge.ts';
 import type { ConvergeReport } from './converge.ts';
 import { buildBlueprint, writeExport, archive as archiveDir } from './export.ts';
 import { ConstitutionSchema, IdeaSchema, SourceSchema, safeParse } from './schema.ts';
+import { readDesignState, handoffSeed, runStudio, parseLintBuild, resolveStudio } from './design.ts';
+import type { DesignState } from './design.ts';
+import { collectFixtureValues } from './lint.ts';
+import { approvalDigest, worktreeDigest, containedPath, isContained } from './integrity.ts';
 import type { Constitution, Idea, Source, Spec, Task, Manifest } from './schema.ts';
 
 export interface HarnessPaths { root: string; workspace: string; blueprints: string; archive: string; db: string; }
@@ -50,6 +54,74 @@ export class Harness {
 
   dir(slug: string): string { return join(this.paths.blueprints, slug); }
 
+  /** Where the L.S.Design contract and handoff live for this project. */
+  designDir(slug: string): string { return join(this.dir(slug), 'design'); }
+
+  /** Domains that declare a design binding, with their bindings. */
+  surfaces(slug: string): { domain: string; contract: string; handoff?: string }[] {
+    const artifacts = this.artifacts(slug);
+    return Object.entries(artifacts.specs ?? {})
+      .filter(([, spec]) => Boolean(spec.design))
+      .map(([domain, spec]) => ({ domain, contract: spec.design!.contract, handoff: spec.design!.handoff }));
+  }
+
+  designState(slug: string): DesignState { return readDesignState(this.designDir(slug)); }
+
+  /** Scaffold design/DESIGN.md, tokens and preview through the studio CLI. */
+  designInit(slug: string, name?: string): { ok: boolean; command: string; output: string } {
+    const dir = this.dir(slug);
+    mkdirSync(dir, { recursive: true });
+    const idea = this.ledger.latest<Idea>(slug, 'idea');
+    const args = ['init', '--project', dir, '--name', name ?? idea?.idea.title ?? slug];
+    const result = runStudio(args, { cwd: this.paths.root });
+    this.ledger.addRevision(slug, 'design_init', { ok: result.ok, command: result.command, status: result.status });
+    if (result.ok) this.noteEdit(slug);
+    return { ok: result.ok, command: result.command, output: `${result.stdout}${result.stderr}`.trim() };
+  }
+
+  /** Export the handoff. The studio refuses unless every screen is approved. */
+  designHandoff(slug: string, options: { force?: boolean } = {}): { ok: boolean; command: string; output: string; state: DesignState } {
+    const args = ['handoff', '--project', this.dir(slug)];
+    if (options.force) args.push('--force');
+    const result = runStudio(args, { cwd: this.paths.root });
+    const state = this.designState(slug);
+    this.ledger.addRevision(slug, 'design_handoff', { ok: result.ok, forced: Boolean(options.force), state });
+    /* A new handoff is new approved-surface content, so any standing approval
+       no longer covers what would be dispatched. */
+    if (result.ok) this.noteEdit(slug);
+    return { ok: result.ok, command: result.command, output: `${result.stdout}${result.stderr}`.trim(), state };
+  }
+
+  /** Run lint-build against a running preview of the implemented surface. */
+  /**
+   * Run lint-build for one surface and record the result against that surface.
+   *
+   * Evidence is bound to the domain, the URL, the handoff digest and the
+   * digest of the files it was run over. Convergence only consumes evidence
+   * whose bindings match the run it is scoring, so a passing lint of some
+   * other preview cannot be spent on a different domain's score.
+   */
+  designLintBuild(slug: string, domain: string, url: string, options: { cwd?: string; worktree?: string } = {}):
+    { passed: boolean; problems: string[]; command: string; domain: string } {
+    const result = runStudio(['lint-build', '--project', this.dir(slug), '--url', url], { cwd: options.cwd ?? this.paths.root });
+    const parsed = parseLintBuild(result);
+    const deliverables = this.artifacts(slug).tasks?.[domain]?.task.deliverables ?? [];
+    this.ledger.addRevision(slug, 'design_lint_build', {
+      ...parsed,
+      domain,
+      url,
+      handoff_digest: this.designState(slug).handoff_digest,
+      worktree_digest: options.worktree ? worktreeDigest(options.worktree, deliverables) : '',
+      at: new Date().toISOString(),
+    });
+    return { ...parsed, command: result.command, domain };
+  }
+
+  studioCommand(slug: string): string {
+    const studio = resolveStudio();
+    return `${studio.cmd} ${[...studio.args, '--project', this.dir(slug), '--open'].join(' ')}`;
+  }
+
   private requireProject(slug: string) {
     const project = this.ledger.getProject(slug);
     if (!project) throw new Error(`Unknown project "${slug}". Run: aose init ${slug}`);
@@ -58,6 +130,22 @@ export class Harness {
 
   private noteEdit(slug: string): void {
     this.ledger.addRevision(slug, 'artifact_edit', { at: new Date().toISOString() });
+    this.ledger.supersedeApprovals(slug);
+  }
+
+  /**
+   * A digest of everything the approval covers: blueprint artifacts, every
+   * spec and task, the design contract and the frozen handoff. Approving
+   * records it and dispatching recomputes it, so an edit invalidates the
+   * approval whether or not the harness was what made the edit.
+   */
+  approvalDigest(slug: string): string {
+    const artifacts = this.artifacts(slug);
+    const extra: string[] = [];
+    for (const boundary of artifacts.manifest?.system.boundaries ?? []) {
+      extra.push(boundary.spec, boundary.task);
+    }
+    return approvalDigest(this.dir(slug), extra, this.designDir(slug)).value;
   }
 
   init(slug: string): ProjectState {
@@ -151,17 +239,44 @@ export class Harness {
     return result;
   }
 
+  /**
+   * One review covers both planes.
+   *
+   * A surface domain bound to a design contract cannot pass review until the
+   * studio's own gate would pass, so the person approves the logic plan and the
+   * visual direction once rather than twice, and a later edit to either one
+   * supersedes the same approval.
+   */
   review(slug: string) {
     this.requireProject(slug);
     const result = reviewProject(this.ledger, slug, this.dir(slug));
-    if (result.passed) apply(this.ledger, slug, 'review', this.ledger.latestRevisionId(slug, 'review') ?? null);
-    return result;
+    const findings = [...result.findings];
+
+    for (const surface of this.surfaces(slug)) {
+      const state = this.designState(slug);
+      if (!state.gate_can_pass && state.handoff_passed_gate !== true) {
+        for (const blocker of state.blockers) {
+          findings.push({ id: 'LINT-28', severity: 'error', where: `design (${surface.domain})`, message: blocker });
+        }
+        if (!state.blockers.length) {
+          findings.push({ id: 'LINT-28', severity: 'error', where: `design (${surface.domain})`, message: 'The design gate has not passed and no handoff was released.' });
+        }
+      }
+    }
+
+    const merged = { passed: findings.length === 0, findings, warnings: result.warnings };
+    if (merged.passed !== result.passed) this.ledger.addRevision(slug, 'review', merged);
+    if (merged.passed) apply(this.ledger, slug, 'review', this.ledger.latestRevisionId(slug, 'review') ?? null);
+    else this.ledger.addFinding(slug, 'review', findings);
+    return merged;
   }
 
   approve(slug: string, by: string) {
     this.requireProject(slug);
-    const result = approveProject(this.ledger, slug, this.dir(slug), by);
-    if (result.passed) apply(this.ledger, slug, 'approve', this.ledger.latestRevisionId(slug, 'review') ?? null);
+    const result = this.review(slug);
+    if (!result.passed) return result;
+    this.ledger.addApproval(slug, by, this.approvalDigest(slug));
+    apply(this.ledger, slug, 'approve', this.ledger.latestRevisionId(slug, 'review') ?? null);
     return result;
   }
 
@@ -184,8 +299,17 @@ export class Harness {
       if (project.state !== 'APPROVED' && project.state !== 'DISPATCHED' && project.state !== 'GATED') {
         throw new Error(`Dispatch requires an approved blueprint. Current state: ${project.state}.`);
       }
-      if (!this.ledger.activeApproval(slug)) {
+      const approval = this.ledger.activeApproval(slug);
+      if (!approval) {
         throw new Error('Dispatch requires an active approval. The blueprint changed after it was approved; re-run review and approve.');
+      }
+      const current = this.approvalDigest(slug);
+      if (approval.digest && approval.digest !== current) {
+        this.ledger.supersedeApprovals(slug);
+        throw new Error(`Dispatch refused: what is on disk no longer matches what was approved (approved ${approval.digest.slice(0, 12)}, found ${current.slice(0, 12)}). Re-run review and approve.`);
+      }
+      if (!approval.digest) {
+        throw new Error('Dispatch refused: the recorded approval carries no content digest, so it cannot be shown to cover the current blueprint. Re-run approve.');
       }
     }
 
@@ -247,6 +371,13 @@ export class Harness {
   private seedFor(slug: string, artifacts: ReturnType<Harness['artifacts']>, domain: string): SeedFile[] {
     const boundary = artifacts.manifest?.system.boundaries.find((b) => b.domain === domain);
     const seed: SeedFile[] = [{ path: 'package.json', content: `${JSON.stringify({ name: `aose-${domain.replace(/\//g, '-')}`, private: true, type: 'module', scripts: { test: 'node --test' } }, null, 2)}\n` }];
+    const design = artifacts.specs?.[domain]?.design;
+    if (design?.handoff) {
+      /* handoffSeed refuses a path that escapes the design root; a blueprint
+         that declares one is a blueprint that does not get dispatched. */
+      for (const file of handoffSeed(this.dir(slug), design.handoff)) seed.push(file);
+    }
+
     for (const upstream of boundary?.depends_on ?? []) {
       const passing = this.ledger.runs(slug, upstream).filter((r) => r.gate_exit === 0).pop();
       const upstreamTask = artifacts.tasks?.[upstream]?.task;
@@ -288,8 +419,10 @@ export class Harness {
         domain, worktree, spec, task,
         gateExit: passing.gate_exit, gateStdout: stdout, gateStdoutSha: passing.gate_stdout_sha256,
         sources, citedUrls,
+        allowedOrigins: (artifacts.constitution?.constitution.allowlists ?? []).flatMap((list) => list.entries),
         approvalAt: approval?.created_at ?? null,
         firstDispatchAt,
+        design: this.designEvidence(slug, domain, worktree),
       }));
     }
 
@@ -298,6 +431,50 @@ export class Harness {
     apply(this.ledger, slug, passed ? 'converge' : 'converge_fail', revision);
     if (!passed) this.ledger.addFinding(slug, 'converge', reports.filter((r) => !r.passed));
     return { reports, passed };
+  }
+
+  /** What the design plane can prove about one domain, read from real artifacts. */
+  private designEvidence(slug: string, domain: string, worktree: string) {
+    const spec = this.artifacts(slug).specs?.[domain];
+    if (!spec?.design) {
+      return { bound: false, handoff_exists: false, handoff_passed_gate: null, lint_build_passed: null, lint_build_problems: [], fixture_leaks: [], screenshots: [] };
+    }
+    const state = this.designState(slug);
+    const deliverables = this.artifacts(slug).tasks?.[domain]?.task.deliverables ?? [];
+    const runDigest = worktreeDigest(worktree, deliverables);
+
+    /* Only evidence produced for THIS domain, against THIS handoff, over THESE
+       files counts. A lint of another surface or of an earlier build is not
+       evidence about this one. */
+    const lint = this.ledger.all<{ passed: boolean; problems: string[]; domain?: string; handoff_digest?: string; worktree_digest?: string }>(slug, 'design_lint_build')
+      .filter((row) => row.domain === domain
+        && (row.handoff_digest ?? '') === state.handoff_digest
+        && (row.worktree_digest ?? '') === runDigest)
+      .pop();
+
+    const handoffRel = spec.design.handoff ?? 'design/handoff';
+    if (!isContained(this.dir(slug), handoffRel)) {
+      return { bound: true, handoff_exists: false, handoff_passed_gate: false, lint_build_passed: false,
+        lint_build_problems: [`design.handoff "${handoffRel}" resolves outside the project`], fixture_leaks: [], screenshots: [] };
+    }
+    const fixtures = join(containedPath(this.dir(slug), handoffRel), 'fixtures');
+    const quarantined = existsSync(fixtures) ? collectFixtureValues(fixtures) : [];
+    const leaks: string[] = [];
+    for (const deliverable of deliverables) {
+      const path = join(worktree, deliverable);
+      if (!existsSync(path)) continue;
+      const body = readFileSync(path, 'utf8');
+      for (const value of quarantined) if (body.includes(value) && !leaks.includes(value)) leaks.push(value);
+    }
+    return {
+      bound: true,
+      handoff_exists: state.handoff_exists,
+      handoff_passed_gate: state.handoff_passed_gate,
+      lint_build_passed: lint ? lint.passed : null,
+      lint_build_problems: lint?.problems ?? [],
+      fixture_leaks: leaks,
+      screenshots: [],
+    };
   }
 
   export(slug: string): string[] {
@@ -326,6 +503,28 @@ export class Harness {
     const target = archiveDir(this.dir(slug), this.paths.archive, slug);
     apply(this.ledger, slug, 'archive', null);
     return target;
+  }
+
+  /**
+   * Return a blocked project to COMPILED, consuming one respec allowance.
+   *
+   * The constitution declares max_respec and nothing was enforcing it, so a
+   * caller could cycle blocked -> respec -> dispatch forever. The allowance is
+   * consumed here before the transition, and a spent allowance is a stop.
+   */
+  respec(slug: string, reason: string): { allowed: boolean; used: number; remaining: number; state: ProjectState } {
+    const project = this.requireProject(slug);
+    const constitution = this.artifacts(slug).constitution ?? this.ledger.latest<Constitution>(slug, 'constitution');
+    const maxRespec = constitution?.constitution.budgets.max_respec ?? 2;
+    const outcome = this.ledger.consumeRespec(slug, maxRespec);
+    if (!outcome.allowed) {
+      this.ledger.addFinding(slug, 'respec', { reason, exhausted: true, used: outcome.used, max: maxRespec });
+      return { ...outcome, state: project.state };
+    }
+    const revision = this.ledger.addRevision(slug, 'respec', { reason, used: outcome.used, max: maxRespec });
+    const state = apply(this.ledger, slug, 'respec', revision);
+    this.noteEdit(slug);
+    return { ...outcome, state };
   }
 
   validate(slug: string) { return validateProject(this.ledger, slug, this.dir(slug)); }

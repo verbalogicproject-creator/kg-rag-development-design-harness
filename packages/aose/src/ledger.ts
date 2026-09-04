@@ -59,7 +59,7 @@ export class Ledger {
         body TEXT NOT NULL, created_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS approvals (
         id INTEGER PRIMARY KEY, slug TEXT NOT NULL, approved_by TEXT NOT NULL,
-        created_at TEXT NOT NULL, superseded_at TEXT);
+        created_at TEXT NOT NULL, superseded_at TEXT, digest TEXT NOT NULL DEFAULT '');
       CREATE TABLE IF NOT EXISTS sources (
         id INTEGER PRIMARY KEY, slug TEXT NOT NULL, url TEXT NOT NULL,
         body TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE(slug, url));
@@ -107,6 +107,17 @@ export class Ledger {
     this.db.prepare('UPDATE projects SET state = ?, updated_at = ? WHERE slug = ?').run(state, now(), slug);
   }
 
+  /** Atomically consume one respec allowance, refusing once the bound is spent. */
+  consumeRespec(slug: string, maxRespec: number): { allowed: boolean; used: number; remaining: number } {
+    const project = this.getProject(slug);
+    if (!project) return { allowed: false, used: 0, remaining: 0 };
+    if (project.respec_count >= maxRespec) {
+      return { allowed: false, used: project.respec_count, remaining: 0 };
+    }
+    const used = this.bumpRespec(slug);
+    return { allowed: true, used, remaining: Math.max(0, maxRespec - used) };
+  }
+
   bumpRespec(slug: string): number {
     this.db.prepare('UPDATE projects SET respec_count = respec_count + 1, updated_at = ? WHERE slug = ?').run(now(), slug);
     return this.getProject(slug)!.respec_count;
@@ -137,13 +148,15 @@ export class Ledger {
   }
 
   /* approvals */
-  addApproval(slug: string, by: string): void {
-    this.db.prepare('INSERT INTO approvals (slug, approved_by, created_at) VALUES (?, ?, ?)').run(slug, by, now());
+  /** An approval is bound to a digest of exactly what was approved. */
+  addApproval(slug: string, by: string, digest = ''): void {
+    this.db.prepare('INSERT INTO approvals (slug, approved_by, created_at, digest) VALUES (?, ?, ?, ?)')
+      .run(slug, by, now(), digest);
   }
 
-  activeApproval(slug: string): { approved_by: string; created_at: string } | undefined {
-    return this.db.prepare('SELECT approved_by, created_at FROM approvals WHERE slug = ? AND superseded_at IS NULL ORDER BY id DESC LIMIT 1')
-      .get(slug) as { approved_by: string; created_at: string } | undefined;
+  activeApproval(slug: string): { approved_by: string; created_at: string; digest: string } | undefined {
+    return this.db.prepare('SELECT approved_by, created_at, digest FROM approvals WHERE slug = ? AND superseded_at IS NULL ORDER BY id DESC LIMIT 1')
+      .get(slug) as { approved_by: string; created_at: string; digest: string } | undefined;
   }
 
   supersedeApprovals(slug: string): void {

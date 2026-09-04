@@ -5,7 +5,7 @@
 **Audience** Mobile and desktop browser users playing offline  
 **Scope class** architectural  
 **Format** aose-blueprint/v2  
-**Generated** 2026-09-04T22:24:05.212Z
+**Generated** 2026-09-04T22:50:08.939Z
 
 ## Success criteria
 

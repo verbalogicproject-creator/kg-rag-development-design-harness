@@ -24,15 +24,24 @@ const USAGE = `aose — Agent-Oriented Software Engineering harness v2
     research-add <slug> --file F   Record a research source
     research-verify <slug>         Fetch every source and check it says what was claimed
     compile <slug>                 Normalize the triad, derive upstream exports and build order
-    lint <slug|--dir D>            Run LINT-01..26 over a blueprint
+    lint <slug|--dir D>            Run LINT-01..30 over a blueprint
     review <slug>                  Machine review: lint clean, citations verified
     approve <slug> --by NAME       Record a human approval
     dispatch <slug> [options]      Cold-dispatch domains to a worker, then run their gates
-    converge <slug>                Score the four pillars against produced evidence
+    converge <slug>                Score the pillars against produced evidence (five for a design-bound surface)
     export <slug>                  Write blueprint.yaml + implementation-plan.md
     archive <slug>                 Copy the finished blueprint into blueprints/_archive
+    respec <slug> --reason R       Return a blocked project to compile, spending one respec allowance
     validate <slug>                Replay the transition log and audit approvals
     status <slug>                  Show current state, sources, runs
+
+  Design plane (L.S.Design)
+    design-init <slug>             Scaffold design/DESIGN.md, tokens and preview
+    design-studio <slug>           Print the command that opens the studio for review
+    design-status <slug>           Screens, decisions, gate state and blockers
+    design-handoff <slug>          Export the frozen handoff (the studio gates this)
+    design-lint <slug> --domain D --url U
+                                   Check a built surface against the frozen contract
 
   Dispatch options
     --domain D        Only this domain (default: every domain in build order)
@@ -46,6 +55,7 @@ const USAGE = `aose — Agent-Oriented Software Engineering harness v2
   Global
     --root DIR        Workspace root (default: cwd)
     --json            Machine-readable output
+    --force           design-handoff only: export without the gate (stamped provisional)
 `;
 
 function fail(message: string): never {
@@ -58,9 +68,10 @@ const { values, positionals } = parseArgs({
   strict: false,
   options: {
     root: { type: 'string' }, dir: { type: 'string' }, file: { type: 'string' },
-    by: { type: 'string' }, domain: { type: 'string' }, adapter: { type: 'string' },
+    by: { type: 'string' }, domain: { type: 'string' }, adapter: { type: 'string' }, reason: { type: 'string' },
     fixture: { type: 'string' }, attempts: { type: 'string' }, timeout: { type: 'string' },
     adapters: { type: 'string' },
+    url: { type: 'string' }, name: { type: 'string' }, force: { type: 'boolean' },
     'dry-run': { type: 'boolean' }, 'bypass-sandbox': { type: 'boolean' },
     json: { type: 'boolean' }, help: { type: 'boolean' },
   },
@@ -213,6 +224,15 @@ try {
       out(`Archived to ${target}`, { target });
       break;
     }
+    case 'respec': {
+      if (!values.reason) fail('respec needs --reason "<why the plan is changing>".');
+      const outcome = harness.respec(slug, values.reason as string);
+      if (json) process.stdout.write(`${JSON.stringify(outcome, null, 2)}\n`);
+      else if (outcome.allowed) process.stdout.write(`Respec ${outcome.used} of ${outcome.used + outcome.remaining}. State is now ${outcome.state}. Edit the blueprint, then compile, lint, review and approve again.\n`);
+      else process.stdout.write(`Respec refused: the constitution's respec allowance is spent after ${outcome.used} attempt(s). This plan is not converging; change the approach rather than retrying it.\n`);
+      process.exitCode = outcome.allowed ? 0 : 1;
+      break;
+    }
     case 'validate': {
       const report = harness.validate(slug);
       if (json) process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
@@ -221,6 +241,51 @@ try {
         process.stdout.write(report.valid ? `\nVALID — state ${report.state}, transition log replays cleanly.\n` : `\nINVALID — ${report.errors.length} problem(s).\n`);
       }
       process.exitCode = report.valid ? 0 : 1;
+      break;
+    }
+    case 'design-init': {
+      const result = harness.designInit(slug, values.name as string | undefined);
+      if (!json) process.stdout.write(`${result.output}\n`);
+      out(result.ok ? `Design contract scaffolded in ${harness.designDir(slug)}.\nEdit it, or run the ls-design-contract skill to fill it in properly.` : 'Studio init failed.', result);
+      process.exitCode = result.ok ? 0 : 1;
+      break;
+    }
+    case 'design-studio': {
+      const command = harness.studioCommand(slug);
+      out(`Open the studio with:\n  ${command}\n\nApprove or reject each screen there. The handoff is released only when every screen is approved.`, { command });
+      break;
+    }
+    case 'design-status': {
+      const state = harness.designState(slug);
+      if (json) process.stdout.write(`${JSON.stringify(state, null, 2)}\n`);
+      else {
+        process.stdout.write(`design: ${state.root}\n`);
+        process.stdout.write(`  contract ${state.contract_exists ? 'present' : 'missing'}, tokens ${state.tokens_exists ? 'present' : 'missing'}, preview ${state.preview_exists ? 'present' : 'missing'}\n`);
+        process.stdout.write(`  screens  ${state.approved_screens}/${state.total_screens} approved\n`);
+        process.stdout.write(`  handoff  ${state.handoff_exists ? (state.handoff_passed_gate === false ? 'present (forced, gate not passed)' : 'present') : 'not exported'}\n`);
+        for (const blocker of state.blockers) process.stdout.write(`  blocker: ${blocker}\n`);
+        process.stdout.write(state.gate_can_pass ? '\nThe design gate can pass.\n' : '\nThe design gate cannot pass yet.\n');
+      }
+      process.exitCode = state.gate_can_pass || state.handoff_passed_gate === true ? 0 : 1;
+      break;
+    }
+    case 'design-handoff': {
+      const result = harness.designHandoff(slug, { force: Boolean(values.force) });
+      if (!json && result.output) process.stdout.write(`${result.output}\n`);
+      out(result.ok ? 'Handoff exported.' : 'Handoff refused. Approve every screen in the studio first.', result);
+      process.exitCode = result.ok ? 0 : 1;
+      break;
+    }
+    case 'design-lint': {
+      if (!values.url) fail('design-lint needs --url <preview url> for the running build.');
+      if (!values.domain) fail('design-lint needs --domain <domain> so the result is bound to the surface it checked.');
+      const result = harness.designLintBuild(slug, values.domain as string, values.url as string);
+      if (json) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      else {
+        for (const problem of result.problems) process.stdout.write(`  ${problem}\n`);
+        process.stdout.write(result.passed ? '\nThe build matches the frozen contract.\n' : `\n${result.problems.length} contract problem(s).\n`);
+      }
+      process.exitCode = result.passed ? 0 : 1;
       break;
     }
     case 'status': {

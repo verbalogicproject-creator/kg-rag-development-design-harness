@@ -1,0 +1,83 @@
+module: infra/store
+runtime: esm-only, node24
+requirements:
+  - id: REQ-01
+    ears: WHEN the store is opened against a new file THE SYSTEM SHALL create its schema and record the schema version.
+    verified_by: [SC-01]
+  - id: REQ-02
+    ears: WHEN the store is opened against a file from an older schema version THE SYSTEM SHALL migrate it forward without losing existing rows.
+    verified_by: [SC-02]
+  - id: REQ-03
+    ears: WHEN an opportunity is saved twice THE SYSTEM SHALL update the existing row rather than creating a duplicate.
+    verified_by: [SC-03]
+  - id: REQ-04
+    ears: WHEN opportunities are listed by stage THE SYSTEM SHALL return only that stage, most recently updated first.
+    verified_by: [SC-04]
+  - id: REQ-05
+    ears: IF a write fails THE SYSTEM SHALL leave the database unchanged and return a discriminated error.
+    verified_by: [SC-05]
+types: |
+  import type { Opportunity, Stage, Result } from '../core/opportunity';
+  import type { Profile } from '../core/match';
+
+  type StoreError = 'NOT_FOUND' | 'WRITE_FAILED' | 'MIGRATION_FAILED';
+
+  interface Store {
+    readonly path: string;
+    readonly schemaVersion: number;
+    close(): void;
+  }
+contracts:
+  "openStore(path: string): Result<Store, StoreError>":
+    kind: transition
+    precondition: path is a writable file path or the string ':memory:'.
+    postcondition: Returns an open store whose schema is at the current version, creating or migrating it as needed. Existing rows survive a migration. Returns MIGRATION_FAILED without altering the file when migration cannot complete.
+    errors: [MIGRATION_FAILED, WRITE_FAILED]
+  "saveOpportunity(store: Store, opportunity: Opportunity): Result<Opportunity, StoreError>":
+    kind: transition
+    precondition: The store is open and the opportunity has an id.
+    postcondition: Inserts or updates the row keyed by id and returns the stored opportunity. Writing the same opportunity twice leaves exactly one row. On failure the database is unchanged.
+    errors: [WRITE_FAILED]
+  "listOpportunities(store: Store, stage: Stage | null): Result<readonly Opportunity[], StoreError>":
+    kind: transition
+    precondition: The store is open.
+    postcondition: Returns opportunities at the requested stage, or all of them when stage is null, ordered by last update descending.
+    errors: [NOT_FOUND]
+  "saveProfile(store: Store, profile: Profile): Result<Profile, StoreError>":
+    kind: transition
+    precondition: The store is open.
+    postcondition: Persists the single profile row, replacing any previous one, and returns it.
+    errors: [WRITE_FAILED]
+  "loadProfile(store: Store): Result<Profile, StoreError>":
+    kind: transition
+    precondition: The store is open.
+    postcondition: Returns the stored profile, or NOT_FOUND when none has been saved. Never returns a fabricated default profile.
+    errors: [NOT_FOUND]
+verification:
+  test_suite: test/store.test.js
+  scenarios:
+    - id: SC-01
+      given: a path with no database
+      when: the store is opened
+      then: the schema is created at the current version
+      test_name: creates the schema on first open
+    - id: SC-02
+      given: a database written at an older schema version
+      when: the store is opened
+      then: it migrates forward and the existing rows survive
+      test_name: migrates an older database without losing rows
+    - id: SC-03
+      given: an opportunity saved twice
+      when: it is listed
+      then: exactly one row is returned
+      test_name: saving the same opportunity twice leaves one row
+    - id: SC-04
+      given: opportunities across several stages
+      when: one stage is listed
+      then: only that stage is returned, most recent first
+      test_name: lists a single stage ordered by recency
+    - id: SC-05
+      given: a store whose write fails
+      when: a save is attempted
+      then: WRITE_FAILED is returned and the database is unchanged
+      test_name: a failed write leaves the database untouched

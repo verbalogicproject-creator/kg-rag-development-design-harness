@@ -14,5 +14,16 @@ sources:
       status: verified
       fetched_title: "Beyond Postconditions: Can Large Language Models infer Formal
         Contracts for Automatic Software Verification?"
-      checked_at: 2026-09-04T22:23:31.631Z
-      detail: arXiv title similarity 0.64.
+      checked_at: 2026-09-04T22:49:00.807Z
+      detail: "arXiv 2510.12702: title similarity 0.64, claim terms present 62%."
+      excerpt: Automatic software verifiers have become increasingly effective at the
+        task of checking software against (formal) specifications. Yet, their
+        adoption in practice has been hampered by the lack of such
+        specifications in real world code. Large Language Models (LLMs) have
+        shown promise in inferring formal postconditions from natural language
+        hints embedded in code such as function names, comments or
+        documentation. Using the generated postconditions as specifications in a
+        subsequent verification, however, often leads verifiers to suggest
+        invalid inputs, hinting at potential issues that ultimately t
+      claim_support: 0.6153846153846154
+      canonical_id: arXiv:2510.12702

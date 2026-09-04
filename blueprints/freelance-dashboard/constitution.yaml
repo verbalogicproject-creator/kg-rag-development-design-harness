@@ -1,0 +1,56 @@
+# Non-negotiables for the freelance developer dashboard.
+# Every artifact below is checked against these. ART-06 is the one that turns
+# "we do not break anyone's terms" from an intention into a lint failure.
+constitution:
+  name: Freelance-Dashboard
+  version: 1
+  stack: [node24, esm, vite, react, tailwind, node-sqlite]
+  articles:
+    - id: ART-01
+      title: Pure cores
+      rule: A core/* domain performs no I/O, no network access and no DOM access; it is a function of its inputs.
+      enforcement: review
+    - id: ART-02
+      title: Errors are values
+      rule: A state transition reports failure by returning a discriminated Result, never by throwing across a domain boundary.
+      enforcement: lint
+    - id: ART-03
+      title: Immutable transitions
+      rule: Domain state objects are never mutated in place; a transition returns a new object.
+      enforcement: review
+    - id: ART-04
+      title: Every scenario is a named test
+      rule: Each verification scenario maps to exactly one test whose name matches the scenario's test_name.
+      enforcement: gate
+    - id: ART-05
+      title: Local first
+      rule: The dashboard runs offline against local storage. No account, no hosted backend, no telemetry.
+      enforcement: review
+    - id: ART-06
+      title: Fetch only what a source permits
+      rule: A domain may reach a network source only if that source appears on the feed_sources allowlist. Scraping a site whose terms forbid programmatic access is prohibited regardless of technical feasibility.
+      enforcement: lint
+    - id: ART-07
+      title: The design contract is law
+      rule: A surface renders from the design contract's tokens. A raw colour literal, a magic pixel value or a one-off font size in a component is a defect.
+      enforcement: gate
+    - id: ART-08
+      title: No invented content ships
+      rule: Fixture values from generated screens are quarantined. Real content or an explicit empty state, never a plausible-looking invention.
+      enforcement: lint
+  allowlists:
+    - id: feed_sources
+      rationale: >-
+        Sources that publish machine-readable listings openly and permit programmatic access.
+        Upwork is deliberately absent: its terms prohibit scraping and its API requires approval,
+        so it enters only as an authenticated source once access is granted.
+      entries:
+        - https://remotive.com/api/remote-jobs
+        - https://remoteok.com/api
+        - https://weworkremotely.com/remote-jobs.rss
+        - https://hn.algolia.com/api/v1/
+  budgets:
+    max_attempts: 2
+    max_respec: 2
+    timeout_minutes: 15
+    max_payload_tokens: 4000

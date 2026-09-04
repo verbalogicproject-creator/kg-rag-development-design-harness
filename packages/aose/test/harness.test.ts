@@ -22,16 +22,20 @@ function project(): { harness: Harness; root: string } {
 
 const nl2contract = () => YAML.parse(readFileSync(join(SOURCE_TICTACTOE, 'sources', 'nl2contract.yaml'), 'utf8'));
 
+/* A real arXiv record carries an abstract, and verification now checks that the
+   recorded claim's own vocabulary appears in it, so the fixture must too. */
 const verifiedFetch: FetchLike = async (url: string) => ({
   ok: true, status: 200,
   text: async () => url.includes('arxiv')
-    ? '<feed><entry><title>Beyond Postconditions: Can Large Language Models Infer Formal Contracts from Natural Language?</title></entry></feed>'
-    : '{"full_name":"x/y"}',
+    ? '<feed><entry><title>Beyond Postconditions: Can Large Language Models Infer Formal Contracts from Natural Language?</title>'
+      + '<summary>Generating preconditions alongside postconditions reduces the false alarms a verifier reports when contracts are checked.</summary></entry></feed>'
+    : '{"full_name":"x/y","description":"preconditions postconditions verifier false alarms"}',
 });
 
 const mismatchFetch: FetchLike = async () => ({
   ok: true, status: 200,
-  text: async () => '<feed><entry><title>AgriGov: A Structured Multilingual Dataset Curation for Indian Government Schemes for Farmers</title></entry></feed>',
+  text: async () => '<feed><entry><title>AgriGov: A Structured Multilingual Dataset Curation for Indian Government Schemes for Farmers</title>'
+    + '<summary>A trilingual dataset of Indian government agricultural schemes for farmers.</summary></entry></feed>',
 });
 
 test('an unverified source blocks review, and verifying it unblocks review', async () => {
@@ -86,6 +90,61 @@ test('dispatch is refused without an approval and after the blueprint changes', 
   assert.equal(harness.ledger.activeApproval('tictactoe'), undefined,
     'recompiling supersedes the approval rather than letting it silently stand');
   await assert.rejects(() => harness.dispatch('tictactoe', { adapter: 'fake' }), /approved blueprint|active approval/);
+});
+
+test('an approval is bound to the content it approved, not merely to a timestamp', async () => {
+  const { harness, root } = project();
+  harness.init('tictactoe');
+  harness.capture('tictactoe');
+  harness.ready('tictactoe');
+  harness.addSource('tictactoe', nl2contract());
+  harness.compile('tictactoe');
+  await harness.verifySources('tictactoe', verifiedFetch);
+  harness.lint('tictactoe');
+  harness.review('tictactoe');
+  harness.approve('tictactoe', 'owner');
+
+  const approval = harness.ledger.activeApproval('tictactoe')!;
+  assert.equal(approval.digest.length, 64, 'the approval records a digest of what was approved');
+  assert.equal(approval.digest, harness.approvalDigest('tictactoe'));
+
+  /* Edit a spec behind the harness's back, the way a person or another agent
+     would. Nothing tells the ledger, so only the digest can catch it. */
+  const spec = join(root, 'blueprints', 'tictactoe', 'core.engine.spec.yaml');
+  writeFileSync(spec, `${readFileSync(spec, 'utf8')}\n# a quiet edit after approval\n`);
+
+  assert.notEqual(harness.approvalDigest('tictactoe'), approval.digest);
+  await assert.rejects(
+    () => harness.dispatch('tictactoe', { adapter: 'fake' }),
+    /no longer matches what was approved/,
+  );
+  assert.equal(harness.ledger.activeApproval('tictactoe'), undefined,
+    'the mismatch supersedes the approval rather than merely refusing once');
+});
+
+test('the respec allowance is enforced and then refuses', () => {
+  const { harness } = project();
+  harness.init('tictactoe');
+  harness.capture('tictactoe');
+  harness.ready('tictactoe');
+  harness.compile('tictactoe');
+  harness.ledger.setState('tictactoe', 'BLOCKED');
+  harness.ledger.logTransition('tictactoe', 'COMPILED', 'BLOCKED', 'exhausted', null);
+
+  const first = harness.respec('tictactoe', 'the engine spec was underspecified');
+  assert.equal(first.allowed, true);
+  assert.equal(first.state, 'COMPILED');
+  assert.equal(first.remaining, 1);
+
+  harness.ledger.setState('tictactoe', 'BLOCKED');
+  harness.ledger.logTransition('tictactoe', 'COMPILED', 'BLOCKED', 'exhausted', null);
+  assert.equal(harness.respec('tictactoe', 'again').allowed, true);
+
+  harness.ledger.setState('tictactoe', 'BLOCKED');
+  const third = harness.respec('tictactoe', 'and again');
+  assert.equal(third.allowed, false, 'the constitution allows two respecs, not an endless loop');
+  assert.equal(third.remaining, 0);
+  assert.equal(harness.ledger.getProject('tictactoe')!.state, 'BLOCKED');
 });
 
 test('a dry run needs no approval and spawns nothing', async () => {

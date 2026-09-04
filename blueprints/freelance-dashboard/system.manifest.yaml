@@ -1,0 +1,68 @@
+system:
+  name: Freelance-Dashboard
+  constitution: constitution.yaml
+  scope_class: architectural
+  boundaries:
+    - domain: core/opportunity
+      responsibility: The opportunity record and its pipeline state machine. Pure; no I/O.
+      depends_on: []
+      exports: [STAGES, createOpportunity, advance, canAdvance, isTerminal]
+      spec: core.opportunity.spec.yaml
+      task: core.opportunity.task.yaml
+    - domain: core/match
+      responsibility: Score an opportunity against a freelancer profile and explain the score. Pure; no I/O.
+      depends_on: [core/opportunity]
+      exports: [scoreOpportunity, rankOpportunities]
+      spec: core.match.spec.yaml
+      task: core.match.task.yaml
+    - domain: core/parse
+      responsibility: Turn a pasted job post into an opportunity, naming every field it could not read. Pure; no I/O.
+      depends_on: [core/opportunity]
+      exports: [parsePost, parseRate, parseBudget, extractSkills]
+      spec: core.parse.spec.yaml
+      task: core.parse.task.yaml
+    - domain: infra/feeds
+      responsibility: Fetch allowlisted job feeds through an injected fetch, normalize them to opportunities and deduplicate.
+      depends_on: [core/opportunity, core/parse]
+      exports: [SOURCES, runScout, normalizeItem, dedupeKey]
+      spec: infra.feeds.spec.yaml
+      task: infra.feeds.task.yaml
+    - domain: infra/store
+      responsibility: SQLite persistence for opportunities, profile and scout history, with schema migration.
+      depends_on: [core/opportunity]
+      exports: [openStore, saveOpportunity, listOpportunities, saveProfile, loadProfile]
+      spec: infra.store.spec.yaml
+      task: infra.store.task.yaml
+    - domain: ui/client
+      responsibility: The dashboard surfaces. Pipeline board, scout inbox, opportunity detail, profile.
+      depends_on: [core/opportunity, core/match, infra/store]
+      exports: [App, PipelineBoard, ScoutInbox, OpportunityDetail, ProfileForm]
+      spec: ui.client.spec.yaml
+      task: ui.client.task.yaml
+invariants: [ART-01, ART-02, ART-03, ART-04, ART-05, ART-06, ART-07, ART-08]
+decisions:
+  - id: DEC-01
+    statement: Every contract declares a precondition and a postcondition, not only a signature.
+    rationale: Generating preconditions alongside postconditions measurably reduces false alarms when contracts are checked, so both are required rather than optional.
+    alternatives: [Postconditions only, Prose descriptions only]
+    sources: [https://arxiv.org/abs/2510.12702]
+  - id: DEC-02
+    statement: Decompose into a dependency DAG of pure cores plus thin adapters, and build in topological order.
+    rationale: Independent lines of work converge on decomposing into a dependency structure and planning per node rather than generating a system in one pass.
+    alternatives: [One module per screen, A single service with internal layering]
+    sources: [https://arxiv.org/abs/2309.12499]
+  - id: DEC-03
+    statement: The scout injects its fetch function rather than calling the network directly.
+    rationale: Normalization, deduplication and scoring stay deterministic and gate-testable offline, and the only network edge is a single substitutable seam.
+    alternatives: [Direct fetch inside the domain, A recorded-cassette HTTP layer]
+    sources: []
+  - id: DEC-04
+    statement: Source access is governed by the feed_sources allowlist in the constitution, and Upwork is excluded until API access is granted.
+    rationale: Its terms prohibit scraping and its API needs approval, so the allowlist encodes the legal boundary where a linter can enforce it rather than where a developer must remember it.
+    alternatives: [Scrape the public search pages, Ship with no sources at all]
+    sources: []
+  - id: DEC-05
+    statement: The surface is built against a frozen L.S.Design handoff rather than styled during implementation.
+    rationale: A human approves the visual direction on real screens once, and the builder implements what was approved instead of relitigating it, which is what keeps a token system from drifting.
+    alternatives: [Style during implementation, Apply a component library default theme]
+    sources: []

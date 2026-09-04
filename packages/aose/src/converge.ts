@@ -10,6 +10,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import type { Spec, Task, Source } from './schema.ts';
+import { undeclaredHosts } from './lint.ts';
 
 export interface PillarScore { name: string; score: number; components: { label: string; earned: number; possible: number; detail: string }[]; }
 export interface ConvergeReport {
@@ -18,6 +19,16 @@ export interface ConvergeReport {
   threshold: number;
   pillars: PillarScore[];
   generated_at: string;
+}
+
+export interface DesignEvidence {
+  bound: boolean;
+  handoff_exists: boolean;
+  handoff_passed_gate: boolean | null;
+  lint_build_passed: boolean | null;
+  lint_build_problems: string[];
+  fixture_leaks: string[];
+  screenshots: string[];
 }
 
 export interface ConvergeInput {
@@ -30,8 +41,11 @@ export interface ConvergeInput {
   gateStdoutSha: string;
   sources: Source[];
   citedUrls: string[];
+  /** Every origin any constitution allowlist cleared, for the egress check. */
+  allowedOrigins?: string[];
   approvalAt: string | null;
   firstDispatchAt: string | null;
+  design?: DesignEvidence;
   threshold?: number;
 }
 
@@ -122,20 +136,60 @@ export function converge(input: ConvergeInput): ConvergeReport {
   const verifiedCited = cited.filter((url) => input.sources.find((s) => s.url === url)?.verified.status === 'verified');
   const approvalFirst = Boolean(input.approvalAt && input.firstDispatchAt && input.approvalAt <= input.firstDispatchAt);
 
+  /* The declaration check in LINT-30 governs the blueprint. This one reads the
+     code the worker actually produced, which is where an undeclared host would
+     appear. Neither is a runtime sandbox; see docs/HARNESS.md. */
+  const allowedOrigins = input.allowedOrigins ?? [];
+  const reachedHosts = allowedOrigins.length || task.deliverables.length
+    ? [...new Set(task.deliverables.flatMap((file) => undeclaredHosts(read(file) ?? '', allowedOrigins)))]
+    : [];
+
   const riskEvidence: PillarScore = {
     name: 'Risk & evidence',
     score: 0,
     components: [
-      { label: 'cited sources verified', earned: cited.length === 0 ? 40 : ratio(verifiedCited.length, cited.length) * 40, possible: 40,
+      { label: 'cited sources verified', earned: cited.length === 0 ? 30 : ratio(verifiedCited.length, cited.length) * 30, possible: 30,
         detail: cited.length ? `${verifiedCited.length}/${cited.length} verified` : 'no citations to verify' },
-      { label: 'approval precedes dispatch', earned: approvalFirst ? 30 : 0, possible: 30,
+      { label: 'approval precedes dispatch', earned: approvalFirst ? 25 : 0, possible: 25,
         detail: approvalFirst ? 'approval recorded before first dispatch' : 'no approval recorded before dispatch' },
-      { label: 'gate evidence produced by harness', earned: input.gateStdoutSha ? 30 : 0, possible: 30,
+      { label: 'gate evidence produced by harness', earned: input.gateStdoutSha ? 25 : 0, possible: 25,
         detail: input.gateStdoutSha ? `stdout sha256 ${input.gateStdoutSha.slice(0, 12)}` : 'no harness-produced gate hash' },
+      { label: 'no undeclared network host in the built code', earned: reachedHosts.length === 0 ? 20 : 0, possible: 20,
+        detail: reachedHosts.length ? `reaches ${reachedHosts.slice(0, 3).join(', ')}` : 'none found' },
     ],
   };
 
+  /* ---- Pillar 5: design fidelity (only for a domain bound to a design contract) ----
+     Scored from the studio's own artifacts, never from taste: did a human gate
+     release this handoff, did lint-build agree the implementation matches the
+     frozen tokens, and did any quarantined fixture value survive into the code. */
   const pillars = [specCompliance, testAdequacy, codeQuality, riskEvidence];
+
+  if (input.design?.bound) {
+    const design = input.design;
+    const designFidelity: PillarScore = {
+      name: 'Design fidelity',
+      score: 0,
+      components: [
+        { label: 'handoff released by a human gate',
+          earned: design.handoff_exists && design.handoff_passed_gate === true ? 40 : design.handoff_exists ? 15 : 0,
+          possible: 40,
+          detail: !design.handoff_exists ? 'no handoff folder'
+            : design.handoff_passed_gate === true ? 'gate passed'
+            : design.handoff_passed_gate === false ? 'forced export, gate not passed'
+            : 'handoff present, gate state unknown' },
+        { label: 'implementation matches the frozen contract',
+          earned: design.lint_build_passed === true ? 35 : 0, possible: 35,
+          detail: design.lint_build_passed === null ? 'lint-build was not run'
+            : design.lint_build_passed ? 'lint-build passed'
+            : `lint-build reported ${design.lint_build_problems.length} problem(s)` },
+        { label: 'no quarantined fixture value shipped',
+          earned: design.fixture_leaks.length === 0 ? 25 : 0, possible: 25,
+          detail: design.fixture_leaks.length ? `leaked: ${design.fixture_leaks.slice(0, 3).join(', ')}` : 'clean' },
+      ],
+    };
+    pillars.push(designFidelity);
+  }
   for (const pillar of pillars) {
     pillar.score = Math.round(pillar.components.reduce((sum, c) => sum + c.earned, 0));
   }

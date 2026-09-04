@@ -1,0 +1,36 @@
+idea:
+  title: Freelance developer dashboard
+  goal: Track freelance opportunities from first sighting to won or lost, and surface new ones worth a proposal.
+  audience: A solo developer starting to freelance, working offline on their own machine
+  seed_author: human
+  scope_class: architectural
+  success_criteria:
+    - WHEN a job post is pasted in THE SYSTEM SHALL extract its title, budget, rate and skills, or report exactly which fields it could not read.
+    - WHEN an opportunity changes stage THE SYSTEM SHALL record the transition and reject a stage change that the pipeline does not permit.
+    - WHILE a scout run is in progress THE SYSTEM SHALL fetch only from sources on the feed_sources allowlist.
+    - WHEN a fetched listing matches one already stored THE SYSTEM SHALL deduplicate it rather than creating a second opportunity.
+    - WHEN listings are scored against the profile THE SYSTEM SHALL rank them by fit and show why each scored as it did.
+    - WHERE the dashboard is opened with no data THE SYSTEM SHALL show an explicit empty state rather than invented sample rows.
+  non_goals:
+    - Invoicing, time tracking and earnings reporting, which are version two
+    - Any hosted backend, account system or telemetry
+    - Scraping a site whose terms prohibit programmatic access
+  constraints:
+    - Runs offline; a scout run is the only network activity and it is user-triggered
+    - No credential is required to use the shipped source list
+    - The pure cores must be testable without a browser or a network
+  open_questions: []
+  alternatives_considered:
+    - option: Integrate the Upwork API directly as the primary source
+      rejected_because: Its API requires approval and its terms prohibit scraping, so the product would be unusable until access is granted and unlawful if built the other way.
+    - option: One store domain holding both persistence and matching logic
+      rejected_because: Scoring would become untestable without a database, and the match rules are the part most likely to change weekly.
+    - option: Background polling daemon for the scout
+      rejected_because: A user-triggered run keeps network activity visible and consensual, and removes an entire class of rate-limit and lifecycle bugs.
+  elicitation:
+    - challenge: A parser over unstructured job posts will be wrong often. Does that make the paste path useless?
+      response: It returns a partial result naming the fields it could not read, so the user corrects three fields instead of typing eleven. The contract makes the failure mode explicit rather than silent.
+    - challenge: Why separate core/match from core/pipeline when both operate on an opportunity?
+      response: Pipeline is a state machine whose rules are stable; match is a scoring heuristic that will be tuned constantly. Separating them means tuning the score never risks the stage transitions.
+    - challenge: If the scout can only read four public feeds, is it actually useful on day one?
+      response: Those feeds carry thousands of remote developer listings daily. The value is the filter, not the crawl, and the authenticated slot means a better source can be added without rewriting the domain.

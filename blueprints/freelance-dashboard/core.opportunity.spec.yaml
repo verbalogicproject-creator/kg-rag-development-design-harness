@@ -1,0 +1,101 @@
+module: core/opportunity
+runtime: esm-only, node24, browser
+requirements:
+  - id: REQ-01
+    ears: WHEN an opportunity is created from a title and a source THE SYSTEM SHALL place it at the lead stage with a stable identifier and a creation timestamp.
+    verified_by: [SC-01]
+  - id: REQ-02
+    ears: WHEN a stage change is requested THE SYSTEM SHALL apply it only if the pipeline permits that transition, and otherwise return a discriminated error naming the rejected transition.
+    verified_by: [SC-02, SC-03]
+  - id: REQ-03
+    ears: WHEN a stage change is applied THE SYSTEM SHALL return a new opportunity with the transition appended to its history and leave the input unchanged.
+    verified_by: [SC-04]
+  - id: REQ-04
+    ears: WHERE an opportunity has reached won, lost or archived THE SYSTEM SHALL treat it as terminal and reject any further stage change.
+    verified_by: [SC-05]
+  - id: REQ-05
+    ears: WHEN two opportunities describe the same posting THE SYSTEM SHALL produce the same deduplication key for both.
+    verified_by: [SC-06]
+types: |
+  type Stage = 'lead' | 'drafting' | 'submitted' | 'interviewing' | 'won' | 'lost' | 'archived';
+  type StageError = 'ILLEGAL_TRANSITION' | 'TERMINAL_STAGE' | 'UNKNOWN_STAGE';
+
+  type Result<T, E extends string = string> =
+    | { ok: true; value: T }
+    | { ok: false; error: E; detail: string };
+
+  interface Money { readonly amount: number; readonly currency: string }
+
+  interface Transition {
+    readonly from: Stage;
+    readonly to: Stage;
+    readonly at: string;          // ISO 8601
+    readonly note: string;
+  }
+
+  interface Opportunity {
+    readonly id: string;
+    readonly title: string;
+    readonly source: string;      // the feed or 'manual'
+    readonly url: string;
+    readonly stage: Stage;
+    readonly budget: Money | null;
+    readonly hourlyRate: Money | null;
+    readonly skills: readonly string[];
+    readonly postedAt: string | null;
+    readonly createdAt: string;
+    readonly history: readonly Transition[];
+    readonly notes: string;
+  }
+contracts:
+  "createOpportunity(draft: Partial<Opportunity>, now: string): Result<Opportunity, StageError>":
+    kind: transition
+    precondition: draft.title is a non-empty string and now is an ISO 8601 timestamp.
+    postcondition: Returns an opportunity at stage 'lead' with an empty history, createdAt set to now, and an id derived deterministically from source and url so the same posting yields the same id.
+    errors: [UNKNOWN_STAGE]
+  "canAdvance(from: Stage, to: Stage): boolean":
+    kind: query
+    precondition: Both arguments are declared Stage values.
+    postcondition: Returns true only for a transition the pipeline permits, and false for every transition out of a terminal stage.
+  "advance(opportunity: Opportunity, to: Stage, now: string, note: string): Result<Opportunity, StageError>":
+    kind: transition
+    precondition: canAdvance(opportunity.stage, to) is true and now is an ISO 8601 timestamp.
+    postcondition: Returns a new opportunity at the requested stage with one transition appended to history. The input object is not mutated. Returns TERMINAL_STAGE when the current stage is terminal and ILLEGAL_TRANSITION otherwise.
+    errors: [ILLEGAL_TRANSITION, TERMINAL_STAGE, UNKNOWN_STAGE]
+  "isTerminal(stage: Stage): boolean":
+    kind: query
+    precondition: stage is a declared Stage value.
+    postcondition: Returns true exactly for won, lost and archived.
+verification:
+  test_suite: test/opportunity.test.js
+  scenarios:
+    - id: SC-01
+      given: a draft with a title and a source url
+      when: an opportunity is created
+      then: it starts at lead with an empty history and a deterministic id
+      test_name: creates a lead with a deterministic id and empty history
+    - id: SC-02
+      given: an opportunity at lead
+      when: it is advanced to drafting
+      then: a new opportunity at drafting is returned
+      test_name: permits a legal stage transition
+    - id: SC-03
+      given: an opportunity at lead
+      when: it is advanced directly to won
+      then: an ILLEGAL_TRANSITION error is returned
+      test_name: rejects a transition the pipeline does not permit
+    - id: SC-04
+      given: an opportunity at submitted
+      when: it is advanced to interviewing
+      then: the input object is unchanged and the returned history has one more entry
+      test_name: advancing does not mutate the input opportunity
+    - id: SC-05
+      given: an opportunity at won
+      when: any further advance is attempted
+      then: a TERMINAL_STAGE error is returned
+      test_name: refuses to move an opportunity out of a terminal stage
+    - id: SC-06
+      given: two drafts describing the same posting
+      when: both are created
+      then: their ids are equal
+      test_name: the same posting yields the same id

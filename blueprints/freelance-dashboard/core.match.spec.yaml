@@ -1,0 +1,84 @@
+module: core/match
+runtime: esm-only, node24, browser
+requirements:
+  - id: REQ-01
+    ears: WHEN an opportunity is scored against a profile THE SYSTEM SHALL return a score between 0 and 100 together with the reasons that produced it.
+    verified_by: [SC-01, SC-02]
+  - id: REQ-02
+    ears: IF an opportunity matches a profile exclusion THE SYSTEM SHALL score it zero and name the exclusion that rejected it.
+    verified_by: [SC-03]
+  - id: REQ-03
+    ears: IF an opportunity's rate is below the profile minimum THE SYSTEM SHALL reduce its score and record the shortfall as a reason.
+    verified_by: [SC-04]
+  - id: REQ-04
+    ears: WHEN a list of opportunities is ranked THE SYSTEM SHALL order it by score descending and break ties by the more recent posting.
+    verified_by: [SC-05]
+  - id: REQ-05
+    ears: WHERE a profile declares no skills THE SYSTEM SHALL score every opportunity on rate and recency alone rather than returning zero for all.
+    verified_by: [SC-06]
+types: |
+  import type { Opportunity, Money } from '../core/opportunity';
+
+  interface Profile {
+    readonly skills: readonly string[];
+    readonly minRate: Money | null;
+    readonly keywords: readonly string[];
+    readonly exclusions: readonly string[];
+  }
+
+  type ReasonKind = 'skill' | 'rate' | 'keyword' | 'recency' | 'exclusion';
+
+  interface Reason {
+    readonly kind: ReasonKind;
+    readonly detail: string;
+    readonly delta: number;       // contribution to the final score
+  }
+
+  interface Score {
+    readonly value: number;       // 0..100
+    readonly reasons: readonly Reason[];
+    readonly excluded: boolean;
+  }
+contracts:
+  "scoreOpportunity(opportunity: Opportunity, profile: Profile, now: string): Score":
+    kind: query
+    precondition: now is an ISO 8601 timestamp and profile arrays are defined, possibly empty.
+    postcondition: Returns a score in 0..100 whose reasons' deltas sum to the score, or a zero score with excluded true and a single exclusion reason. The same inputs always produce the same score.
+    algorithm: weighted sum of skill overlap, rate margin above the profile minimum, keyword hits and posting recency, clamped to 0..100, short-circuited to zero on any exclusion match
+  "rankOpportunities(opportunities: readonly Opportunity[], profile: Profile, now: string): readonly { opportunity: Opportunity; score: Score }[]":
+    kind: query
+    precondition: Every opportunity is well formed and now is an ISO 8601 timestamp.
+    postcondition: Returns every input paired with its score, ordered by score descending then by postedAt descending. The input array is not mutated.
+verification:
+  test_suite: test/match.test.js
+  scenarios:
+    - id: SC-01
+      given: an opportunity whose skills fully overlap the profile
+      when: it is scored
+      then: the score is high and a skill reason names the overlap
+      test_name: scores a full skill overlap highly and explains why
+    - id: SC-02
+      given: any scored opportunity
+      when: the reasons are summed
+      then: the deltas add up to the reported score
+      test_name: the reasons account for the whole score
+    - id: SC-03
+      given: an opportunity containing a profile exclusion
+      when: it is scored
+      then: the score is zero, excluded is true and the exclusion is named
+      test_name: an exclusion drives the score to zero and says which one
+    - id: SC-04
+      given: an opportunity paying below the profile minimum rate
+      when: it is scored
+      then: the score is reduced and a rate reason records the shortfall
+      test_name: a rate below the minimum reduces the score with a stated shortfall
+    - id: SC-05
+      given: several opportunities with different scores and dates
+      when: they are ranked
+      then: they are ordered by score then by recency
+      test_name: ranks by score and breaks ties by recency
+    - id: SC-06
+      given: a profile that declares no skills
+      when: opportunities are scored
+      then: they are still separated by rate and recency rather than all scoring zero
+      test_name: an empty skill list still produces a useful ranking

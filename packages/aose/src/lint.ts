@@ -13,9 +13,10 @@
  *      citations (CiteCheck, arXiv:2605.27700), approval supersession, and a
  *      payload token budget (context is a finite resource).
  */
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, isAbsolute, normalize } from 'node:path';
 import YAML from 'yaml';
+import { isContained, containedPath } from './integrity.ts';
 import {
   ConstitutionSchema, IdeaSchema, ManifestSchema, SpecSchema, TaskSchema, SourceSchema,
   safeParse, EARS_PATTERN,
@@ -259,8 +260,8 @@ export function lint(input: LintInput): LintResult {
   const { constitution, idea, manifest, specs = {}, tasks = {}, sources = [] } = input;
 
   /* LINT-20: constitution articles */
-  if (constitution) {
-    const ids = constitution.constitution.articles.map((a) => a.id);
+  if (constitution?.constitution) {
+    const ids = (constitution.constitution.articles ?? []).map((a) => a.id);
     const dupes = ids.filter((id, i) => ids.indexOf(id) !== i);
     if (dupes.length) findings.push(err('LINT-20', 'constitution.yaml', `Duplicate article ids: ${[...new Set(dupes)].join(', ')}.`));
   }
@@ -314,7 +315,7 @@ export function lint(input: LintInput): LintResult {
   }
 
   /* LINT-07 invariants reference constitution articles */
-  const articleIds = new Set((constitution?.constitution.articles ?? []).map((a) => a.id));
+  const articleIds = new Set((constitution?.constitution?.articles ?? []).map((a) => a.id));
   for (const invariant of manifest.invariants) {
     if (/^ART-\d{2}$/.test(invariant)) {
       if (!articleIds.has(invariant)) findings.push(err('LINT-07', 'system.manifest.yaml', `Invariant references "${invariant}", which is not an article in the constitution.`));
@@ -393,6 +394,71 @@ export function lint(input: LintInput): LintResult {
       }
     }
 
+    /* LINT-30: a domain may only reach sources a constitution allowlist cleared.
+       This is the rule that turns "we do not break a site's terms" from an
+       intention into a check: an uncleared host fails the blueprint here,
+       before any worker is ever handed the spec. */
+    const allowlists = new Map((constitution?.constitution?.allowlists ?? []).map((list) => [list.id, list]));
+    const allowedOrigins: string[] = (constitution?.constitution?.allowlists ?? []).flatMap((list) => list.entries);
+    for (const source of spec.external_sources ?? []) {
+      const list = allowlists.get(source.allowlist);
+      if (!list) {
+        findings.push(err('LINT-30', where, `"${source.url}" cites allowlist "${source.allowlist}", which the constitution does not define.`));
+        continue;
+      }
+      if (!list.entries.some((entry) => sameOrigin(source.url, entry))) {
+        findings.push(err('LINT-30', where, `"${source.url}" is not on the "${source.allowlist}" allowlist. Add it to the constitution with a rationale, or drop the source. Reason the list exists: ${list.rationale}`));
+      }
+      allowedOrigins.push(source.url);
+      if (source.access === 'authenticated' && !/\bkey\b|\btoken\b|\bcredential/i.test(source.note)) {
+        findings.push(warn('LINT-30', where, `"${source.url}" is marked authenticated but its note does not say which credential it needs.`));
+      }
+    }
+
+    /* LINT-27 / LINT-28: the design plane binding for a surface domain. */
+    const isSurface = /^ui\//.test(boundary.domain);
+    if (spec.design) {
+      if (!isContained(input.dir, spec.design.contract)) {
+        findings.push(err('LINT-27', where, `design.contract "${spec.design.contract}" resolves outside the project.`));
+      } else if (!existsSync(join(input.dir, spec.design.contract))) {
+        findings.push(err('LINT-27', where, `design.contract "${spec.design.contract}" does not exist. Run ls-design-contract before compiling this surface.`));
+      }
+      if (spec.design.handoff) {
+        if (!isContained(input.dir, spec.design.handoff)) {
+          findings.push(err('LINT-28', where, `design.handoff "${spec.design.handoff}" resolves outside the project's design directory. A worker's inputs must come from its own project.`));
+          continue;
+        }
+        const handoffDir = containedPath(input.dir, spec.design.handoff);
+        if (!existsSync(handoffDir)) {
+          findings.push(err('LINT-28', where, `design.handoff "${spec.design.handoff}" does not exist. The studio writes it only when every screen is approved.`));
+        } else {
+          const brief = join(handoffDir, 'BRIEF.md');
+          if (!existsSync(brief)) findings.push(err('LINT-28', where, 'the handoff has no BRIEF.md, so it did not come from a passing studio gate.'));
+          else if (/not\s+hav(e|ing)\s+passed\s+the\s+gate|provisional/i.test(readFileSync(brief, 'utf8'))) {
+            findings.push(err('LINT-28', where, 'the handoff is stamped as a forced export that did not pass the studio gate. Approve the remaining screens or accept it explicitly.'));
+          }
+        }
+      }
+    } else if (isSurface) {
+      findings.push(warn('LINT-27', where, `"${boundary.domain}" is a surface domain with no design binding. Add a design block naming its contract, or the worker will invent the visual language.`));
+    }
+
+    /* LINT-31: the declaration check above governs the blueprint, not the
+       running worker. Scan whatever code exists for URL literals naming a host
+       no allowlist cleared, so a source that was never declared still fails
+       here rather than only at code review. This is a static check over
+       artifacts, not a network sandbox; see docs/HARNESS.md for the limit. */
+    if (spec.external_sources?.length || allowedOrigins.length) {
+      const deliverables = tasks[boundary.domain]?.task.deliverables ?? [];
+      for (const deliverable of deliverables) {
+        const path = join(input.dir, deliverable);
+        if (!existsSync(path)) continue;
+        for (const host of undeclaredHosts(readFileSync(path, 'utf8'), allowedOrigins)) {
+          findings.push(err('LINT-31', deliverable, `reaches "${host}", which no constitution allowlist cleared. Add the source to an allowlist with a rationale, or remove the call.`));
+        }
+      }
+    }
+
     /* LINT-14 EARS, LINT-15 traceability */
     const scenarioIds = new Set(spec.verification.scenarios.map((s) => s.id));
     for (const requirement of spec.requirements) {
@@ -460,8 +526,28 @@ export function lint(input: LintInput): LintResult {
       findings.push(warn('LINT-18', where, `task.context.spec "${task.context.spec}" differs from the boundary's spec "${boundary.spec}".`));
     }
 
+    /* LINT-29: the studio's quarantined fixture values must not be shipped.
+       A generated screen carries invented prices and names so a builder can
+       recognize them, not so they reach production. */
+    const designBinding = specs[boundary.domain]?.design;
+    if (designBinding?.handoff && isContained(input.dir, designBinding.handoff)) {
+      const fixtures = join(containedPath(input.dir, designBinding.handoff), 'fixtures');
+      if (existsSync(fixtures)) {
+        const quarantined = collectFixtureValues(fixtures);
+        for (const deliverable of task.deliverables) {
+          const path = join(input.dir, deliverable);
+          if (!existsSync(path)) continue;
+          const body = readFileSync(path, 'utf8');
+          const leaked = quarantined.filter((value) => body.includes(value));
+          if (leaked.length) {
+            findings.push(err('LINT-29', deliverable, `ships quarantined fixture values from the design handoff: ${leaked.slice(0, 3).join(', ')}. Replace them with real content or an explicit empty state.`));
+          }
+        }
+      }
+    }
+
     /* LINT-24 payload budget (context is a finite resource) */
-    const budget = constitution?.constitution.budgets.max_payload_tokens ?? 4000;
+    const budget = constitution?.constitution?.budgets?.max_payload_tokens ?? 4000;
     const spec = specs[boundary.domain];
     if (spec) {
       const estimate = estimatePayloadTokens(spec, task, constitution);
@@ -482,8 +568,8 @@ export function lint(input: LintInput): LintResult {
 }
 
 export function estimatePayloadTokens(spec: Spec, task: Task['task'], constitution?: Constitution): number {
-  const articles = (constitution?.constitution.articles ?? [])
-    .filter((a) => task.context.constitution_articles.includes(a.id))
+  const articles = (constitution?.constitution?.articles ?? [])
+    .filter((a) => (task.context.constitution_articles ?? []).includes(a.id))
     .map((a) => `${a.id} ${a.title} ${a.rule}`)
     .join('\n');
   const body = [
@@ -494,6 +580,69 @@ export function estimatePayloadTokens(spec: Spec, task: Task['task'], constituti
     task.execution_gate.success_criteria,
   ].join('\n');
   return Math.ceil(body.length / 4);
+}
+
+/**
+ * Hosts a body of code reaches that no allowlist cleared.
+ *
+ * Localhost and relative URLs are ignored; this is about third-party egress.
+ * It reads source text, so it catches a literal but not a host assembled at
+ * runtime. The allowlist is a design-time and artifact-time control, not a
+ * runtime sandbox, and the docs say so rather than overclaiming.
+ */
+export function undeclaredHosts(source: string, allowedEntries: string[]): string[] {
+  const allowed = new Set<string>();
+  for (const entry of allowedEntries) {
+    try { allowed.add(new URL(entry).host); } catch { /* not a url */ }
+  }
+  const local = /^(localhost|127\.|0\.0\.0\.0|::1|\[::1\])/;
+  const found = new Set<string>();
+  for (const match of source.matchAll(/https?:\/\/([A-Za-z0-9.-]+(?::\d+)?)/g)) {
+    const host = match[1];
+    if (local.test(host) || allowed.has(host)) continue;
+    if (host.endsWith('.local') || host === 'example.com') continue;
+    found.add(host);
+  }
+  return [...found];
+}
+
+/** Two URLs match if the allowlist entry is a prefix of, or shares an origin with, the source. */
+export function sameOrigin(url: string, entry: string): boolean {
+  if (url === entry || url.startsWith(entry)) return true;
+  try {
+    const left = new URL(url);
+    const right = new URL(entry);
+    return left.origin === right.origin && left.pathname.startsWith(right.pathname.replace(/\/$/, ''));
+  } catch {
+    return false;
+  }
+}
+
+/** Distinct string and number literals a handoff quarantined as invented. */
+export function collectFixtureValues(fixturesDir: string): string[] {
+  const values = new Set<string>();
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) { walk(full); continue; }
+      if (!/\.(json|ya?ml)$/.test(entry.name)) continue;
+      let parsed: unknown;
+      try { parsed = JSON.parse(readFileSync(full, 'utf8')); } catch { continue; }
+      const visit = (node: unknown): void => {
+        if (typeof node === 'string' && node.trim().length >= 4) values.add(node);
+        else if (typeof node === 'number') values.add(String(node));
+        else if (Array.isArray(node)) node.forEach(visit);
+        else if (node && typeof node === 'object') Object.values(node as Record<string, unknown>).forEach(visit);
+      };
+      visit(parsed);
+    }
+  };
+  try { walk(fixturesDir); } catch { /* no fixtures is fine */ }
+  return [...values];
+}
+
+function resolvePath(dir: string, target: string): string {
+  return containedPath(dir, target);
 }
 
 function truncate(text: string, max = 60): string {

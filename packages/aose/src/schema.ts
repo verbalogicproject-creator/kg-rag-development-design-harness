@@ -46,7 +46,21 @@ export const BudgetsSchema = z.object({
 /** zod does not re-parse a `.default()` value, so nested defaults would be
  *  dropped if the whole object were defaulted to `{}`. State them once here. */
 export const DEFAULT_BUDGETS = { max_attempts: 2, max_respec: 2, timeout_minutes: 15, max_payload_tokens: 4000 };
-export const DEFAULT_VERIFICATION = { status: 'unverified' as const, fetched_title: '', checked_at: '', detail: '' };
+export const DEFAULT_VERIFICATION = { status: 'unverified' as const, fetched_title: '', checked_at: '', detail: '', excerpt: '', canonical_id: '' };
+
+/**
+ * Named allowlists a domain's spec must stay inside.
+ *
+ * This is how a policy stops being a promise. "Only fetch from sources that
+ * permit programmatic access" is written once as an allowlist, referenced by
+ * the domain that fetches, and checked by LINT-30 — so a source nobody cleared
+ * fails the blueprint instead of reaching a worker.
+ */
+export const AllowlistSchema = z.object({
+  id: nonEmpty.regex(/^[a-z][a-z0-9_]*$/, 'allowlist id must be lower_snake_case'),
+  rationale: nonEmpty,
+  entries: z.array(nonEmpty).min(1),
+});
 
 export const ConstitutionSchema = z.object({
   constitution: z.object({
@@ -54,6 +68,7 @@ export const ConstitutionSchema = z.object({
     version: z.number().int().min(1),
     stack: z.array(nonEmpty).min(1),
     articles: z.array(ArticleSchema).min(1),
+    allowlists: z.array(AllowlistSchema).default([]),
     budgets: BudgetsSchema.default(DEFAULT_BUDGETS),
   }),
 });
@@ -104,6 +119,10 @@ export const VerificationRecordSchema = z.object({
   fetched_title: z.string().default(''),
   checked_at: z.string().default(''),
   detail: z.string().default(''),
+  /** Retrieved text, kept so a reader can judge the claim rather than trust a score. */
+  excerpt: z.string().default(''),
+  claim_support: z.number().min(0).max(1).optional(),
+  canonical_id: z.string().default(''),
 });
 
 export const SourceSchema = z.object({
@@ -175,12 +194,37 @@ export const ScenarioSchema = z.object({
   test_name: nonEmpty,
 });
 
+/**
+ * The design plane's hook into a domain spec.
+ *
+ * A surface domain names the L.S.Design contract it is built against and the
+ * frozen handoff the studio released. The harness treats that handoff exactly
+ * as it treats an upstream domain's deliverables: frozen input a cold worker
+ * receives and must not relitigate.
+ */
+export const DesignBindingSchema = z.object({
+  contract: nonEmpty,
+  handoff: z.string().optional(),
+  surfaces: z.array(nonEmpty).min(1),
+  target_stack: z.string().optional(),
+});
+
+/** A source a domain is permitted to reach, checked against a constitution allowlist. */
+export const ExternalSourceSchema = z.object({
+  url: nonEmpty,
+  allowlist: nonEmpty,
+  access: z.enum(['public-feed', 'public-api', 'authenticated']),
+  note: z.string().default(''),
+});
+
 export const SpecSchema = z.object({
   module: nonEmpty.regex(DOMAIN_PATTERN),
   runtime: nonEmpty,
   requirements: z.array(RequirementSchema).min(1),
   types: nonEmpty,
   contracts: z.record(nonEmpty, ContractSchema),
+  design: DesignBindingSchema.optional(),
+  external_sources: z.array(ExternalSourceSchema).default([]),
   verification: z.object({
     test_suite: nonEmpty,
     scenarios: z.array(ScenarioSchema).min(1),
@@ -265,6 +309,9 @@ export type Contract = z.infer<typeof ContractSchema>;
 export type Scenario = z.infer<typeof ScenarioSchema>;
 export type Requirement = z.infer<typeof RequirementSchema>;
 export type Spec = z.infer<typeof SpecSchema>;
+export type Allowlist = z.infer<typeof AllowlistSchema>;
+export type DesignBinding = z.infer<typeof DesignBindingSchema>;
+export type ExternalSource = z.infer<typeof ExternalSourceSchema>;
 export type Task = z.infer<typeof TaskSchema>;
 export type FlatBlueprint = z.infer<typeof FlatBlueprintSchema>;
 export type Blueprint = z.infer<typeof BlueprintSchema>;

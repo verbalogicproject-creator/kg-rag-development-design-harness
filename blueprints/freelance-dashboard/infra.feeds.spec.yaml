@@ -1,0 +1,112 @@
+module: infra/feeds
+runtime: esm-only, node24
+requirements:
+  - id: REQ-01
+    ears: WHILE a scout run is in progress THE SYSTEM SHALL request only URLs whose origin appears in the shipped source list.
+    verified_by: [SC-01, SC-02]
+  - id: REQ-02
+    ears: IF a source is unreachable or returns a malformed body THE SYSTEM SHALL record that source as failed and continue with the remaining sources.
+    verified_by: [SC-03]
+  - id: REQ-03
+    ears: WHEN a listing is normalized THE SYSTEM SHALL produce an opportunity carrying the source it came from and its original url.
+    verified_by: [SC-04]
+  - id: REQ-04
+    ears: WHEN a listing has already been seen THE SYSTEM SHALL deduplicate it rather than emitting a second opportunity.
+    verified_by: [SC-05]
+  - id: REQ-05
+    ears: WHERE a source requires a credential that has not been supplied THE SYSTEM SHALL skip it and report it as skipped rather than attempting an unauthenticated request.
+    verified_by: [SC-06]
+external_sources:
+  - url: https://remotive.com/api/remote-jobs
+    allowlist: feed_sources
+    access: public-api
+    note: Public JSON API for remote listings, no credential required.
+  - url: https://remoteok.com/api
+    allowlist: feed_sources
+    access: public-api
+    note: Public JSON endpoint, no credential required.
+  - url: https://weworkremotely.com/remote-jobs.rss
+    allowlist: feed_sources
+    access: public-feed
+    note: Published RSS feed intended for syndication.
+  - url: https://hn.algolia.com/api/v1/search
+    allowlist: feed_sources
+    access: public-api
+    note: Public search API over Hacker News hiring threads, no credential required.
+types: |
+  import type { Opportunity, Result } from '../core/opportunity';
+
+  type FeedError = 'UNREACHABLE' | 'MALFORMED' | 'NOT_ALLOWED' | 'MISSING_CREDENTIAL';
+  type Access = 'public-feed' | 'public-api' | 'authenticated';
+
+  interface Source {
+    readonly id: string;
+    readonly url: string;
+    readonly access: Access;
+    readonly format: 'json' | 'rss';
+    readonly credentialEnvVar: string | null;
+  }
+
+  interface SourceOutcome {
+    readonly source: string;
+    readonly status: 'ok' | 'failed' | 'skipped';
+    readonly detail: string;
+    readonly found: number;
+  }
+
+  interface ScoutReport {
+    readonly ranAt: string;
+    readonly opportunities: readonly Opportunity[];
+    readonly outcomes: readonly SourceOutcome[];
+    readonly duplicatesDropped: number;
+  }
+
+  type FetchLike = (url: string) => Promise<{ ok: boolean; status: number; text: () => Promise<string> }>;
+contracts:
+  "runScout(sources: readonly Source[], fetchImpl: FetchLike, seen: readonly string[], now: string): Promise<Result<ScoutReport, FeedError>>":
+    kind: transition
+    precondition: Every source url origin appears in SOURCES, fetchImpl is supplied by the caller, and now is an ISO 8601 timestamp.
+    postcondition: Returns one outcome per source and the deduplicated opportunities found. A source that is unreachable or malformed is recorded as failed without aborting the run. A source whose credential env var is unset is recorded as skipped and never requested. Returns NOT_ALLOWED without any request when a url is not in SOURCES.
+    errors: [UNREACHABLE, MALFORMED, NOT_ALLOWED, MISSING_CREDENTIAL]
+  "normalizeItem(raw: unknown, source: Source, now: string): Result<Opportunity, FeedError>":
+    kind: transition
+    precondition: source is a declared source and raw is one item from its response body.
+    postcondition: Returns an opportunity at the lead stage carrying source.id and the item's own url. Returns MALFORMED when the item lacks a title or a url, rather than substituting a placeholder.
+    errors: [MALFORMED]
+  "dedupeKey(opportunity: Opportunity): string":
+    kind: query
+    precondition: The opportunity has a url or a title.
+    postcondition: Returns a stable key such that two listings of the same posting from different sources collide, and different postings do not.
+verification:
+  test_suite: test/feeds.test.js
+  scenarios:
+    - id: SC-01
+      given: the shipped source list
+      when: a scout run executes with a recording fetch
+      then: every requested url origin is one of the shipped sources
+      test_name: requests only the shipped allowlisted sources
+    - id: SC-02
+      given: a source whose url is not in the shipped list
+      when: a scout run is attempted
+      then: NOT_ALLOWED is returned and no request is made
+      test_name: refuses an unlisted source without touching the network
+    - id: SC-03
+      given: one source that errors and one that succeeds
+      when: the run executes
+      then: the failure is recorded and the successful source still yields listings
+      test_name: one failing source does not abort the run
+    - id: SC-04
+      given: a well formed feed item
+      when: it is normalized
+      then: an opportunity at lead carrying the source and url is returned
+      test_name: normalizes a feed item into a lead opportunity
+    - id: SC-05
+      given: the same posting present in two feeds
+      when: the run executes
+      then: one opportunity is emitted and the duplicate is counted
+      test_name: deduplicates the same posting seen in two feeds
+    - id: SC-06
+      given: an authenticated source with no credential in the environment
+      when: the run executes
+      then: it is reported as skipped and never requested
+      test_name: skips an authenticated source when its credential is absent
