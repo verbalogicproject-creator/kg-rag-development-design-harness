@@ -370,7 +370,15 @@ export class Harness {
    */
   private seedFor(slug: string, artifacts: ReturnType<Harness['artifacts']>, domain: string): SeedFile[] {
     const boundary = artifacts.manifest?.system.boundaries.find((b) => b.domain === domain);
-    const seed: SeedFile[] = [{ path: 'package.json', content: `${JSON.stringify({ name: `aose-${domain.replace(/\//g, '-')}`, private: true, type: 'module', scripts: { test: 'node --test' } }, null, 2)}\n` }];
+    const ownDeliverables = artifacts.tasks?.[domain]?.task.deliverables ?? [];
+    const seed: SeedFile[] = [];
+
+    /* A minimal manifest so a test runner can start, unless the domain owns its
+       own package.json, in which case seeding one would fight the worker for
+       the same file. */
+    if (!ownDeliverables.includes('package.json')) {
+      seed.push({ path: 'package.json', content: `${JSON.stringify({ name: `aose-${domain.replace(/\//g, '-')}`, private: true, type: 'module', scripts: { test: 'node --test' } }, null, 2)}\n` });
+    }
     const design = artifacts.specs?.[domain]?.design;
     if (design?.handoff) {
       /* handoffSeed refuses a path that escapes the design root; a blueprint

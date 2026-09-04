@@ -252,3 +252,26 @@ test('the shipped tictactoe blueprint lints clean', () => {
   assert.deepEqual(result.errors.map((f) => `${f.id} ${f.message}`), []);
   assert.equal(result.ok, true);
 });
+
+
+test('an async transition returning Promise<Result<...>> is contained, not bare', () => {
+  assert.equal(classifyReturn('Promise<Result<Report, FeedError>>'), 'result-generic');
+  assert.equal(classifyReturn('Promise<number>'), 'bare');
+  const types = 'type Outcome = { ok: true; v: number } | { ok: false; e: string };';
+  assert.equal(classifyReturn('Promise<Outcome>', types), 'discriminated-union');
+});
+
+test('LINT-09 accepts a Result imported from an upstream domain', () => {
+  const imported = spec({
+    types: "import type { Opportunity, Result } from '../core/opportunity';\ntype Item = { id: string };",
+    contracts: { 'load(u: string): Result<Item, string>': { kind: 'transition', precondition: 'p', postcondition: 'q', errors: [] } },
+  });
+  const result = lint(base({ specs: { 'core/engine': imported } }));
+  assert.equal(result.errors.filter((f) => f.id === 'LINT-09').length, 0);
+
+  const neither = spec({
+    types: 'type Item = { id: string };',
+    contracts: { 'load(u: string): Result<Item, string>': { kind: 'transition', precondition: 'p', postcondition: 'q', errors: [] } },
+  });
+  assert.ok(lint(base({ specs: { 'core/engine': neither } })).errors.some((f) => f.id === 'LINT-09'));
+});

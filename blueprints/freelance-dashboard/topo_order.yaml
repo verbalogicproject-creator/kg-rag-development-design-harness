@@ -1,0 +1,8 @@
+# topo_order.yaml — computed by aose compile. Edit the source artifacts, not this header.
+topo_order:
+  - core/opportunity
+  - core/match
+  - core/parse
+  - infra/feeds
+  - infra/store
+  - ui/client

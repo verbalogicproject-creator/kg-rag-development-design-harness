@@ -1,0 +1,22 @@
+constitution:
+  name: Rate-Calculator
+  version: 1
+  stack: [node24, esm]
+  articles:
+    - id: ART-01
+      title: Errors are values
+      rule: A calculation reports impossible input by returning a discriminated result, never by throwing.
+      enforcement: lint
+    - id: ART-02
+      title: Money is never a float surprise
+      rule: Currency amounts are computed in minor units and rounded once, at the end, half away from zero.
+      enforcement: review
+    - id: ART-03
+      title: Every scenario is a named test
+      rule: Each verification scenario maps to exactly one test whose name matches its test_name.
+      enforcement: gate
+  budgets:
+    max_attempts: 2
+    max_respec: 1
+    timeout_minutes: 10
+    max_payload_tokens: 4000

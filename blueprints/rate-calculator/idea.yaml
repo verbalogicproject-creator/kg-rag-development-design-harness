@@ -1,0 +1,15 @@
+idea:
+  title: Freelance rate calculator
+  goal: Work out the hourly rate a freelancer must charge to reach a target take-home income.
+  audience: A developer deciding what to quote for their first contracts
+  seed_author: human
+  scope_class: spike
+  success_criteria:
+    - WHEN a target income, billable hours, overhead and tax rate are supplied THE SYSTEM SHALL return the hourly rate that reaches that target.
+    - IF billable hours are zero or negative THE SYSTEM SHALL return an error rather than dividing by zero.
+    - WHEN a rate is returned THE SYSTEM SHALL show the breakdown that produced it.
+  non_goals: [Invoicing, Currency conversion, Tax advice]
+  constraints: [No dependencies, Pure functions only]
+  open_questions: []
+  alternatives_considered: []
+  elicitation: []

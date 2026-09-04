@@ -1,0 +1,18 @@
+# system.manifest.yaml — expanded from blueprint.flat.yaml. Edit the source artifacts, not this header.
+system:
+  name: Freelance rate calculator
+  constitution: constitution.yaml
+  scope_class: bounded
+  boundaries:
+    - domain: core/rate
+      responsibility: Single-module implementation of Freelance rate calculator.
+      depends_on: []
+      exports:
+        - requiredRate
+      spec: core.rate.spec.yaml
+      task: core.rate.task.yaml
+invariants:
+  - ART-01
+  - ART-02
+  - ART-03
+decisions: []

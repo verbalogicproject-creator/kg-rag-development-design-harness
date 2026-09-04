@@ -1,0 +1,33 @@
+# infra.feeds.task.yaml — normalized by aose compile. Edit the source artifacts, not this header.
+task:
+  target_module: infra/feeds
+  context:
+    constitution_articles:
+      - ART-02
+      - ART-04
+      - ART-06
+    spec: infra.feeds.spec.yaml
+    upstream_exports:
+      core/opportunity:
+        - STAGES
+        - createOpportunity
+        - advance
+        - canAdvance
+        - isTerminal
+      core/parse:
+        - parsePost
+        - parseRate
+        - parseBudget
+        - extractSkills
+  deliverables:
+    - src/infra/feeds.js
+    - test/feeds.test.js
+  execution_gate:
+    command: node --test test/feeds.test.js
+    success_criteria: Exit code 0 with one passing test per verification scenario,
+      and every test supplies its own fetch function so the suite makes no real
+      network request. A request to any host outside the shipped source list is
+      a failure, not a warning.
+    timeout_minutes: 10
+  budget:
+    max_attempts: 2

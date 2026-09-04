@@ -1,0 +1,6 @@
+url: https://arxiv.org/abs/2309.12499
+kind: arxiv
+title: "CodePlan: Repository-level Coding using LLMs and Planning"
+claim: Repository-scale change is better handled as dependency and impact analysis producing a multi-step plan than as one-shot generation.
+confidence: medium
+supports: [DEC-02]

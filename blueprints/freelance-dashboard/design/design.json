@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "rev": 2,
+  "seq": 1,
+  "project": {
+    "name": "Freelance Dashboard",
+    "slug": "freelance-dashboard",
+    "root": "design",
+    "lang": "en",
+    "dir": "ltr",
+    "createdAt": "2026-09-04T23:10:36.579Z"
+  },
+  "status": "draft",
+  "tokensHash": "c0951e1a1aa3f4a673ed8cc85a06b79ff7173556982d91545822ccf8e74bf58f",
+  "contrastPairs": [
+    {
+      "foreground": "content",
+      "background": "background",
+      "target": 4.5
+    },
+    {
+      "foreground": "content-muted",
+      "background": "background",
+      "target": 4.5
+    },
+    {
+      "foreground": "content",
+      "background": "surface",
+      "target": 4.5
+    },
+    {
+      "foreground": "on-primary",
+      "background": "primary",
+      "target": 4.5
+    },
+    {
+      "foreground": "on-accent",
+      "background": "accent",
+      "target": 4.5
+    },
+    {
+      "foreground": "border-strong",
+      "background": "surface",
+      "target": 3
+    },
+    {
+      "foreground": "focus",
+      "background": "background",
+      "target": 3
+    }
+  ],
+  "generator": {
+    "kind": "agent"
+  },
+  "screens": [],
+  "requests": [],
+  "events": [
+    {
+      "seq": 1,
+      "at": "2026-09-04T23:10:36.625Z",
+      "type": "project_initialized",
+      "data": {
+        "name": "Freelance Dashboard"
+      }
+    }
+  ],
+  "gates": {
+    "screens": {
+      "passed": false
+    }
+  },
+  "approvals": [],
+  "provenance": {
+    "DESIGN.md": "b810eee539768e3c0508eb00c3d70cd9c96536e05bd3f62c0d45942ce1751b69",
+    "tokens.css": "4843a47d55c135f3ac6f3d3caaf036d04d47f50b0919d764d125e75938784a7e",
+    "tailwind.theme.css": "11a8fbe8f7c3a5b172e0d7ed1f45352281c103e52dbf5cac434fa3f496b7ba97",
+    "preview.html": "ff56961c14dd1b2cccea79fe2a90be2b5ad674bc44a1472cdb9bc3777c2bddc3"
+  }
+}

@@ -1,0 +1,88 @@
+# core.rate.spec.yaml — expanded from blueprint.flat.yaml. Edit the source artifacts, not this header.
+module: core/rate
+runtime: node24, esm
+requirements:
+  - id: REQ-01
+    ears: WHEN valid inputs are supplied THE SYSTEM SHALL return the hourly rate
+      that reaches the target take-home.
+    verified_by:
+      - SC-01
+      - SC-02
+  - id: REQ-02
+    ears: IF billable hours are zero or negative THE SYSTEM SHALL return
+      NO_BILLABLE_HOURS rather than dividing by zero.
+    verified_by:
+      - SC-03
+  - id: REQ-03
+    ears: IF the tax rate is at or above one THE SYSTEM SHALL return IMPOSSIBLE_TAX,
+      because no rate reaches the target.
+    verified_by:
+      - SC-04
+  - id: REQ-04
+    ears: WHEN a breakdown is returned THE SYSTEM SHALL make its parts reconcile to
+      the gross amount.
+    verified_by:
+      - SC-05
+types: |
+  type RateError = 'NO_BILLABLE_HOURS' | 'IMPOSSIBLE_TAX' | 'NEGATIVE_TARGET';
+
+  type Result<T, E extends string = string> =
+    | { ok: true; value: T }
+    | { ok: false; error: E; detail: string };
+
+  interface Inputs {
+    readonly targetTakeHome: number;   // minor units per year
+    readonly billableHours: number;    // per year
+    readonly overhead: number;         // minor units per year
+    readonly taxRate: number;          // 0..1
+  }
+
+  interface Breakdown {
+    readonly grossNeeded: number;
+    readonly overhead: number;
+    readonly taxPaid: number;
+    readonly hourlyRate: number;       // minor units
+  }
+contracts:
+  "requiredRate(inputs: Inputs): Result<Breakdown, RateError>":
+    kind: transition
+    precondition: billableHours is greater than zero, taxRate is at least 0 and
+      below 1, and targetTakeHome is not negative.
+    postcondition: Returns the hourly rate in minor units that yields the target
+      take-home after overhead and tax, with a breakdown whose parts reconcile
+      to the gross. Rounds once at the end, half away from zero. Returns
+      NO_BILLABLE_HOURS, IMPOSSIBLE_TAX or NEGATIVE_TARGET instead of throwing.
+    errors:
+      - NO_BILLABLE_HOURS
+      - IMPOSSIBLE_TAX
+      - NEGATIVE_TARGET
+verification:
+  test_suite: test/rate.test.js
+  scenarios:
+    - id: SC-01
+      given: a target of 60000 with 1200 billable hours, 6000 overhead and 25 percent
+        tax
+      when: the rate is computed
+      then: the returned rate multiplied by the hours reaches the target after
+        overhead and tax
+      test_name: reaches the target take-home for ordinary inputs
+    - id: SC-02
+      given: the same inputs twice
+      when: the rate is computed
+      then: both results are identical
+      test_name: the calculation is deterministic
+    - id: SC-03
+      given: zero billable hours
+      when: the rate is computed
+      then: NO_BILLABLE_HOURS is returned and nothing is thrown
+      test_name: returns an error rather than dividing by zero
+    - id: SC-04
+      given: a tax rate of one
+      when: the rate is computed
+      then: IMPOSSIBLE_TAX is returned
+      test_name: refuses a tax rate that makes the target unreachable
+    - id: SC-05
+      given: any successful result
+      when: the breakdown is summed
+      then: overhead plus tax plus take-home equals the gross
+      test_name: the breakdown reconciles to the gross

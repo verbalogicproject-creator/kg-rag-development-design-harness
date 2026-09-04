@@ -1,0 +1,21 @@
+# core.opportunity.task.yaml — normalized by aose compile. Edit the source artifacts, not this header.
+task:
+  target_module: core/opportunity
+  context:
+    constitution_articles:
+      - ART-01
+      - ART-02
+      - ART-03
+      - ART-04
+    spec: core.opportunity.spec.yaml
+    upstream_exports: {}
+  deliverables:
+    - src/core/opportunity.js
+    - test/opportunity.test.js
+  execution_gate:
+    command: node --test test/opportunity.test.js
+    success_criteria: Exit code 0 with one passing test per verification scenario,
+      each named exactly as its test_name.
+    timeout_minutes: 10
+  budget:
+    max_attempts: 2

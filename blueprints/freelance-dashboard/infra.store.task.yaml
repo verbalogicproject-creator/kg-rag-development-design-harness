@@ -1,0 +1,27 @@
+# infra.store.task.yaml — normalized by aose compile. Edit the source artifacts, not this header.
+task:
+  target_module: infra/store
+  context:
+    constitution_articles:
+      - ART-02
+      - ART-04
+      - ART-05
+    spec: infra.store.spec.yaml
+    upstream_exports:
+      core/opportunity:
+        - STAGES
+        - createOpportunity
+        - advance
+        - canAdvance
+        - isTerminal
+  deliverables:
+    - src/infra/store.js
+    - test/store.test.js
+  execution_gate:
+    command: node --test test/store.test.js
+    success_criteria: Exit code 0 with one passing test per verification scenario,
+      using node:sqlite against ':memory:' or a temporary file. No test leaves a
+      database behind.
+    timeout_minutes: 10
+  budget:
+    max_attempts: 2

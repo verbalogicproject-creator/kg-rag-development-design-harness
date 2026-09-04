@@ -97,7 +97,13 @@ export function resolveAlias(name: string, types: string): string | null {
  * real check instead of the substring heuristic it replaces.
  */
 export function classifyReturn(returns: string, types = '', depth = 0): ReturnClass {
-  const type = returns.trim();
+  let type = returns.trim();
+
+  /* An async transition returns Promise<Result<...>>. The wrapper says when the
+     value arrives, not whether failure is a value, so unwrap before judging. */
+  const awaited = /^(?:Promise|Awaited)\s*<([\s\S]+)>$/.exec(type);
+  if (awaited && depth < 4) return classifyReturn(awaited[1], types, depth + 1);
+
   if (/^Result\s*</.test(type)) return 'result-generic';
   const members = splitUnion(type);
   if (members.length > 1) {
@@ -357,13 +363,21 @@ export function lint(input: LintInput): LintResult {
     if (!/\b(type|interface)\s+\w+/.test(spec.types)) {
       findings.push(err('LINT-09', where, 'types block declares no type or interface.'));
     }
+    /* A spec may define Result itself or import it from an upstream domain.
+       An import is a declaration of where the type comes from, which is what
+       this rule is actually checking for. */
     const usesResult = Object.keys(spec.contracts).some((sig) => /Result\s*</.test(parseSignature(sig)?.returns ?? ''));
-    if (usesResult && !/\b(type|interface)\s+Result\b/.test(spec.types) && !/\{\s*ok\s*:/.test(spec.types)) {
-      findings.push(err('LINT-09', where, 'contracts return Result<...> but the types block never defines Result.'));
+    const definesResult = /\b(type|interface)\s+Result\b/.test(spec.types) || /\{\s*ok\s*:/.test(spec.types);
+    const importsResult = /\bimport\s+type\s*\{[^}]*\bResult\b[^}]*\}\s*from\s*['"]([^'"]+)['"]/.test(spec.types);
+    if (usesResult && !definesResult && !importsResult) {
+      findings.push(err('LINT-09', where, 'contracts return Result<...> but the types block neither defines Result nor imports it from an upstream domain.'));
     }
 
     const declaredErrors = new Set<string>();
     for (const match of spec.types.matchAll(/'([A-Z0-9_]+)'/g)) declaredErrors.add(match[1]);
+    for (const match of spec.types.matchAll(/\bimport\s+type\s*\{([^}]*)\}/g)) {
+      for (const name of match[1].split(',')) declaredErrors.add(name.trim());
+    }
 
     for (const [signature, contract] of Object.entries(spec.contracts)) {
       /* LINT-10 pre + post (NL2Contract) */

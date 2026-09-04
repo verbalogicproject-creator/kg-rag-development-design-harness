@@ -1,0 +1,6 @@
+url: https://arxiv.org/abs/2510.12702
+kind: arxiv
+title: "Beyond Postconditions: Can Large Language Models Infer Formal Contracts from Natural Language?"
+claim: Generating preconditions alongside postconditions reduces the false alarms a verifier reports when the resulting contracts are checked.
+confidence: medium
+supports: [DEC-01]

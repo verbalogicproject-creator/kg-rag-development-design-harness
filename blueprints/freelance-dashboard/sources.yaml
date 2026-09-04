@@ -1,0 +1,53 @@
+# Research ledger, mirrored from the harness database by aose.
+# verified.status is written only by `aose research-verify`.
+sources:
+  - url: https://arxiv.org/abs/2510.12702
+    kind: arxiv
+    title: "Beyond Postconditions: Can Large Language Models Infer Formal Contracts
+      from Natural Language?"
+    claim: Generating preconditions alongside postconditions reduces the false
+      alarms a verifier reports when the resulting contracts are checked.
+    confidence: medium
+    supports:
+      - DEC-01
+    verified:
+      status: verified
+      fetched_title: "Beyond Postconditions: Can Large Language Models infer Formal
+        Contracts for Automatic Software Verification?"
+      checked_at: 2026-09-04T23:10:27.354Z
+      detail: "arXiv 2510.12702: title similarity 0.64, claim terms present 57%."
+      excerpt: Automatic software verifiers have become increasingly effective at the
+        task of checking software against (formal) specifications. Yet, their
+        adoption in practice has been hampered by the lack of such
+        specifications in real world code. Large Language Models (LLMs) have
+        shown promise in inferring formal postconditions from natural language
+        hints embedded in code such as function names, comments or
+        documentation. Using the generated postconditions as specifications in a
+        subsequent verification, however, often leads verifiers to suggest
+        invalid inputs, hinting at potential issues that ultimately t
+      claim_support: 0.5714285714285714
+      canonical_id: arXiv:2510.12702
+  - url: https://arxiv.org/abs/2309.12499
+    kind: arxiv
+    title: "CodePlan: Repository-level Coding using LLMs and Planning"
+    claim: Repository-scale change is better handled as dependency and impact
+      analysis producing a multi-step plan than as one-shot generation.
+    confidence: medium
+    supports:
+      - DEC-02
+    verified:
+      status: verified
+      fetched_title: "CodePlan: Repository-level Coding using LLMs and Planning"
+      checked_at: 2026-09-04T23:10:27.832Z
+      detail: "arXiv 2309.12499: title similarity 1.00, claim terms present 61%."
+      excerpt: Software engineering activities such as package migration, fixing
+        errors reports from static analysis or testing, and adding type
+        annotations or other specifications to a codebase, involve pervasively
+        editing the entire repository of code. We formulate these activities as
+        repository-level coding tasks. Recent tools like GitHub Copilot, which
+        are powered by Large Language Models (LLMs), have succeeded in offering
+        high-quality solutions to localized coding problems. Repository-level
+        coding tasks are more involved and cannot be solved directly using LLMs,
+        since code within a repository is inter-d
+      claim_support: 0.6111111111111112
+      canonical_id: arXiv:2309.12499

@@ -36,7 +36,7 @@ system:
     - domain: ui/client
       responsibility: The dashboard surfaces. Pipeline board, scout inbox, opportunity detail, profile.
       depends_on: [core/opportunity, core/match, infra/store]
-      exports: [App, PipelineBoard, ScoutInbox, OpportunityDetail, ProfileForm]
+      exports: [App, PipelineBoard, ScoutInbox, OpportunityDetail, ProfileForm, toBoardColumns, toInboxRows, emptyStateFor]
       spec: ui.client.spec.yaml
       task: ui.client.task.yaml
 invariants: [ART-01, ART-02, ART-03, ART-04, ART-05, ART-06, ART-07, ART-08]

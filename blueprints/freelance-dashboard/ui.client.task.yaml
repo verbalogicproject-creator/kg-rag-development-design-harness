@@ -1,0 +1,51 @@
+# ui.client.task.yaml — normalized by aose compile. Edit the source artifacts, not this header.
+task:
+  target_module: ui/client
+  context:
+    constitution_articles:
+      - ART-02
+      - ART-04
+      - ART-05
+      - ART-07
+      - ART-08
+    spec: ui.client.spec.yaml
+    upstream_exports:
+      core/opportunity:
+        - STAGES
+        - createOpportunity
+        - advance
+        - canAdvance
+        - isTerminal
+      core/match:
+        - scoreOpportunity
+        - rankOpportunities
+      infra/store:
+        - openStore
+        - saveOpportunity
+        - listOpportunities
+        - saveProfile
+        - loadProfile
+  deliverables:
+    - package.json
+    - vite.config.ts
+    - index.html
+    - src/main.tsx
+    - src/App.tsx
+    - src/view-model.ts
+    - src/components/PipelineBoard.tsx
+    - src/components/ScoutInbox.tsx
+    - src/components/OpportunityDetail.tsx
+    - src/components/ProfileForm.tsx
+    - src/data/copy.ts
+    - src/styles.css
+    - src/__tests__/client.test.tsx
+  execution_gate:
+    command: npm install --no-audit --no-fund --silent && npm run build && npm run
+      test:unit
+    success_criteria: Exit code 0. The production build compiles, and one passing
+      test exists per verification scenario named exactly as its test_name.
+      Interface copy lives in src/data/copy.ts rather than inline in components,
+      and every navigation target resolves.
+    timeout_minutes: 15
+  budget:
+    max_attempts: 2

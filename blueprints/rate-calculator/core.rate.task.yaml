@@ -1,0 +1,18 @@
+# core.rate.task.yaml — normalized by aose compile. Edit the source artifacts, not this header.
+task:
+  target_module: core/rate
+  context:
+    constitution_articles:
+      - ART-01
+      - ART-02
+      - ART-03
+    spec: core.rate.spec.yaml
+    upstream_exports: {}
+  deliverables:
+    - src/rate.js
+    - test/rate.test.js
+  execution_gate:
+    command: node --test test/rate.test.js
+    success_criteria: Exit code 0 with one passing test per verification scenario,
+      each named exactly as its test_name.
+  budget: {}

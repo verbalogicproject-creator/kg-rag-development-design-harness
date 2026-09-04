@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Freelance Dashboard — design contract preview</title>
+
+<style>
+  /* ls-design:tokens:start */
+
+
+  :root {
+    color-scheme: light;
+
+    /* Color */
+    --ls-color-background: #F7F5F2;
+    --ls-color-surface: #FFFFFF;
+    --ls-color-surface-raised: #FBFAF8;
+    --ls-color-content: #1A1917;
+    --ls-color-content-muted: #5C574F;
+    --ls-color-border: #E2DED6;
+    --ls-color-border-strong: #948D82;
+    --ls-color-primary: #2F6F5E;
+    --ls-color-on-primary: #FFFFFF;
+    --ls-color-accent: #A0552A;
+    --ls-color-on-accent: #FFFFFF;
+    --ls-color-success: #2E7D52;
+    --ls-color-warning: #8A5D0F;
+    --ls-color-danger: #A33224;
+    --ls-color-focus: #2F6F5E;
+
+    /* Typography */
+    --ls-font-display: Fraunces, Georgia, serif;
+    --ls-text-display: clamp(2.5rem, 6vw, 4.5rem);
+    --ls-weight-display: 600;
+    --ls-leading-display: 1.05;
+    --ls-tracking-display: -0.02em;
+    --ls-font-h1: Fraunces, Georgia, serif;
+    --ls-text-h1: clamp(1.875rem, 4vw, 2.75rem);
+    --ls-weight-h1: 600;
+    --ls-leading-h1: 1.15;
+    --ls-tracking-h1: -0.01em;
+    --ls-font-h2: Fraunces, Georgia, serif;
+    --ls-text-h2: 1.5rem;
+    --ls-weight-h2: 600;
+    --ls-leading-h2: 1.25;
+    --ls-font-h3: Inter, system-ui, sans-serif;
+    --ls-text-h3: 1.1875rem;
+    --ls-weight-h3: 600;
+    --ls-leading-h3: 1.35;
+    --ls-font-body: Inter, system-ui, sans-serif;
+    --ls-text-body: 1.0625rem;
+    --ls-weight-body: 400;
+    --ls-leading-body: 1.6;
+    --ls-font-body-small: Inter, system-ui, sans-serif;
+    --ls-text-body-small: 0.9375rem;
+    --ls-weight-body-small: 400;
+    --ls-leading-body-small: 1.55;
+    --ls-font-caption: Inter, system-ui, sans-serif;
+    --ls-text-caption: 0.8125rem;
+    --ls-weight-caption: 400;
+    --ls-leading-caption: 1.45;
+    --ls-font-label: Inter, system-ui, sans-serif;
+    --ls-text-label: 0.875rem;
+    --ls-weight-label: 600;
+    --ls-leading-label: 1.4;
+    --ls-font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+    --ls-text-mono: 0.875rem;
+    --ls-weight-mono: 400;
+    --ls-leading-mono: 1.5;
+
+    /* Spacing */
+    --ls-space-2xs: 0.25rem;
+    --ls-space-xs: 0.5rem;
+    --ls-space-sm: 1rem;
+    --ls-space-md: 1.5rem;
+    --ls-space-lg: 2.5rem;
+    --ls-space-xl: 4rem;
+    --ls-space-2xl: 6rem;
+
+    /* Radii */
+    --ls-radius-sm: 0.25rem;
+    --ls-radius-md: 0.625rem;
+    --ls-radius-lg: 1.25rem;
+    --ls-radius-full: 9999px;
+
+    /* Component tokens */
+    --ls-button-background: var(--ls-color-primary);
+    --ls-button-color: var(--ls-color-on-primary);
+    --ls-button-border-radius: var(--ls-radius-full);
+    --ls-button-padding-inline: var(--ls-space-md);
+    --ls-button-padding-block: var(--ls-space-xs);
+    --ls-card-background: var(--ls-color-surface);
+    --ls-card-border-color: var(--ls-color-border);
+    --ls-card-border-radius: var(--ls-radius-lg);
+    --ls-card-padding: var(--ls-space-md);
+    --ls-input-background: var(--ls-color-surface);
+    --ls-input-color: var(--ls-color-content);
+    --ls-input-border-color: var(--ls-color-border);
+    --ls-input-border-radius: var(--ls-radius-md);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ls-color-background: #151412;
+      --ls-color-surface: #1F1E1B;
+      --ls-color-surface-raised: #26241F;
+      --ls-color-content: #F2EFE9;
+      --ls-color-content-muted: #A8A296;
+      --ls-color-border: #35332E;
+      --ls-color-border-strong: #736E64;
+      --ls-color-primary: #6FBFA5;
+      --ls-color-on-primary: #10201B;
+      --ls-color-accent: #E08E58;
+      --ls-color-on-accent: #231409;
+      --ls-color-success: #5FC48D;
+      --ls-color-warning: #D9A441;
+      --ls-color-danger: #E2705F;
+      --ls-color-focus: #6FBFA5;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ls-color-background: #151412;
+    --ls-color-surface: #1F1E1B;
+    --ls-color-surface-raised: #26241F;
+    --ls-color-content: #F2EFE9;
+    --ls-color-content-muted: #A8A296;
+    --ls-color-border: #35332E;
+    --ls-color-border-strong: #736E64;
+    --ls-color-primary: #6FBFA5;
+    --ls-color-on-primary: #10201B;
+    --ls-color-accent: #E08E58;
+    --ls-color-on-accent: #231409;
+    --ls-color-success: #5FC48D;
+    --ls-color-warning: #D9A441;
+    --ls-color-danger: #E2705F;
+    --ls-color-focus: #6FBFA5;
+  }
+  /* ls-design:tokens:end */
+
+  * { box-sizing: border-box; }
+  html { color-scheme: light dark; }
+  body {
+    margin-block: 0; margin-inline: 0;
+    background: var(--ls-color-background);
+    color: var(--ls-color-content);
+    font-family: var(--ls-font-body);
+    font-size: var(--ls-text-body);
+    line-height: var(--ls-leading-body);
+    letter-spacing: var(--ls-tracking-body);
+  }
+  body.system-fonts { font-family: var(--ls-font-system-fallback); }
+  body.system-fonts h1, body.system-fonts h2 { font-family: var(--ls-font-system-fallback); }
+  a { color: var(--ls-color-primary); }
+  code { font-family: var(--ls-font-mono); font-size: var(--ls-text-label); }
+
+  .skip-link {
+    position: absolute;
+    inset-inline-start: var(--ls-space-sm);
+    inset-block-start: -3.5rem;
+    z-index: 50;
+    background: var(--ls-color-primary);
+    color: var(--ls-color-on-primary);
+    border-radius: var(--ls-radius-sm);
+    padding-inline: var(--ls-space-sm);
+    padding-block: var(--ls-space-xs);
+    transition: inset-block-start var(--ls-duration-normal) var(--ls-easing-standard);
+  }
+  .skip-link:focus { inset-block-start: var(--ls-space-sm); }
+  a:focus-visible, button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid var(--ls-color-focus);
+    outline-offset: 2px;
+  }
+
+  header.top {
+    position: sticky; inset-block-start: 0; z-index: 10;
+    background: var(--ls-color-surface);
+    border-block-end: var(--ls-border-width) solid var(--ls-color-border);
+    padding-inline: var(--ls-space-md); padding-block: var(--ls-space-sm);
+    display: flex; flex-wrap: wrap; gap: var(--ls-space-sm);
+    align-items: center; justify-content: space-between;
+  }
+  header.top .title { font-weight: 600; font-size: var(--ls-text-h3); }
+  header.top .status {
+    font-size: var(--ls-text-caption);
+    background: var(--ls-color-surface-raised);
+    border: var(--ls-border-width) solid var(--ls-color-border);
+    border-radius: var(--ls-radius-full);
+    padding-inline: var(--ls-space-xs); padding-block: var(--ls-space-2xs);
+  }
+  .controls { display: flex; gap: var(--ls-space-xs); flex-wrap: wrap; }
+  .btn {
+    font: inherit; font-size: var(--ls-text-label);
+    background: var(--ls-color-surface-raised);
+    color: var(--ls-color-content);
+    border: var(--ls-border-width) solid var(--ls-color-border);
+    border-radius: var(--ls-radius-sm);
+    padding-inline: var(--ls-space-sm); padding-block: var(--ls-space-2xs);
+    min-block-size: 2rem; cursor: pointer;
+  }
+  .btn.primary { background: var(--ls-color-primary); color: var(--ls-color-on-primary); border-color: transparent; }
+
+  main { padding-inline: var(--ls-space-md); padding-block: var(--ls-space-lg); max-inline-size: 78rem; margin-inline: auto; }
+  section { margin-block-end: var(--ls-space-xl); }
+  h1 { font-family: var(--ls-font-display); font-size: var(--ls-text-h1); line-height: var(--ls-leading-heading); margin-block: 0 var(--ls-space-xs); }
+  h2 {
+    font-family: var(--ls-font-display); font-size: var(--ls-text-h2); line-height: var(--ls-leading-heading);
+    border-inline-start: 4px solid var(--ls-color-primary);
+    padding-inline-start: var(--ls-space-xs);
+    margin-block: 0 var(--ls-space-sm);
+  }
+  h3 { font-size: var(--ls-text-h3); margin-block: 0 var(--ls-space-2xs); }
+  p { max-inline-size: 68ch; margin-block: 0 var(--ls-space-sm); }
+
+  .card {
+    background: var(--ls-color-surface);
+    border: var(--ls-border-width) solid var(--ls-color-border);
+    border-radius: var(--ls-radius-lg);
+    padding-inline: var(--ls-space-md); padding-block: var(--ls-space-md);
+    box-shadow: var(--ls-shadow-raised); /* physical-ok: shadow offset is inline-symmetric and never flips */
+  }
+  .grid { display: grid; gap: var(--ls-space-sm); }
+  .swatch-grid { grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); }
+  .swatch {
+    border-radius: var(--ls-radius-md);
+    padding-inline: var(--ls-space-sm); padding-block: var(--ls-space-sm);
+    border: var(--ls-border-width) solid var(--ls-color-border);
+    display: flex; flex-direction: column; gap: var(--ls-space-2xs);
+    font-size: var(--ls-text-caption);
+  }
+  .swatch .name { font-weight: 600; font-size: var(--ls-text-label); }
+  .swatch .ratio, .swatch .value { font-family: var(--ls-font-mono); }
+  .pass { color: var(--ls-color-success); font-weight: 700; }
+  .fail { color: var(--ls-color-danger); font-weight: 700; }
+
+  table { border-collapse: collapse; inline-size: 100%; font-size: var(--ls-text-body-small); }
+  th, td {
+    border: var(--ls-border-width) solid var(--ls-color-border);
+    padding-inline: var(--ls-space-xs); padding-block: var(--ls-space-2xs);
+    text-align: start; vertical-align: top;
+  }
+  th { background: var(--ls-color-surface-raised); }
+  td.num { text-align: end; font-family: var(--ls-font-mono); }
+
+  .type-row { border-block-end: var(--ls-border-width) solid var(--ls-color-border); padding-block: var(--ls-space-sm); }
+  .type-row .sample { margin-block: 0; }
+  .type-row .role { font-size: var(--ls-text-caption); color: var(--ls-color-content-muted); font-family: var(--ls-font-mono); }
+  .isolate { unicode-bidi: isolate; }
+
+  .frame-set { display: flex; gap: var(--ls-space-md); flex-wrap: wrap; align-items: flex-start; }
+  .frame {
+    container-type: inline-size;
+    border: var(--ls-border-width) dashed var(--ls-color-border);
+    border-radius: var(--ls-radius-md);
+    overflow: hidden;
+    background: var(--ls-color-surface);
+  }
+  .frame .frame-label {
+    font-size: var(--ls-text-caption); color: var(--ls-color-content-muted);
+    padding-inline: var(--ls-space-xs); padding-block: var(--ls-space-2xs);
+    border-block-end: var(--ls-border-width) solid var(--ls-color-border);
+    font-family: var(--ls-font-mono);
+  }
+  .frame .frame-body { padding-inline: var(--ls-space-sm); padding-block: var(--ls-space-sm); }
+  .frame.w360 { inline-size: 360px; }
+  .frame.w768 { inline-size: 768px; max-inline-size: 100%; }
+  .frame.w1440 { inline-size: 1440px; max-inline-size: 100%; }
+
+  .demo-nav { display: flex; justify-content: space-between; align-items: center; gap: var(--ls-space-sm); margin-block-end: var(--ls-space-sm); flex-wrap: wrap; }
+  .demo-hero { display: flex; flex-direction: column; gap: var(--ls-space-xs); }
+  .demo-cta { align-self: flex-start; }
+  form.demo-form { display: grid; gap: var(--ls-space-sm); margin-block-start: var(--ls-space-sm); }
+  form.demo-form label { display: block; font-size: var(--ls-text-label); font-weight: 600; margin-block-end: var(--ls-space-2xs); }
+  form.demo-form label .req { color: var(--ls-color-danger); margin-inline-start: var(--ls-space-2xs); }
+  form.demo-form input {
+    inline-size: 100%; font: inherit;
+    padding-inline: var(--ls-space-xs); padding-block: var(--ls-space-xs);
+    border-radius: var(--ls-radius-md);
+    border: var(--ls-border-width) solid var(--ls-color-border-strong);
+    background: var(--ls-color-surface); color: var(--ls-color-content);
+    min-block-size: 2.75rem;
+  }
+  form.demo-form .error { color: var(--ls-color-danger); font-size: var(--ls-text-caption); margin-block-start: var(--ls-space-2xs); }
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: var(--ls-space-xs); margin-block-start: var(--ls-space-sm); }
+  .card-grid .card { padding-inline: var(--ls-space-sm); padding-block: var(--ls-space-sm); }
+
+  .mirror-demo { inline-size: 2rem; block-size: 2rem; }
+  [dir="rtl"] .mirror { transform: scaleX(-1); }
+  .progress { block-size: 0.5rem; border-radius: var(--ls-radius-full); background: var(--ls-color-border); overflow: hidden; }
+  .progress .fill { block-size: 100%; inline-size: 62%; background: var(--ls-color-primary); }
+
+  .checklist { list-style: none; padding-inline: 0; margin-block: 0; display: grid; gap: var(--ls-space-2xs); }
+  .checklist li { display: flex; gap: var(--ls-space-xs); align-items: baseline; }
+  .selfcheck-item {
+    display: flex; justify-content: space-between; gap: var(--ls-space-sm);
+    padding-block: var(--ls-space-2xs);
+    border-block-end: var(--ls-border-width) dashed var(--ls-color-border);
+    font-size: var(--ls-text-body-small);
+  }
+  footer.bottom {
+    border-block-start: var(--ls-border-width) solid var(--ls-color-border);
+    padding-inline: var(--ls-space-md); padding-block: var(--ls-space-md);
+    font-size: var(--ls-text-body-small); color: var(--ls-color-content-muted);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+</style>
+</head>
+<body>
+<a href="#main" class="skip-link">Skip to main content</a>
+
+<header class="top">
+  <div class="title">Freelance Dashboard — design contract preview <span class="status">draft</span></div>
+  <div class="controls">
+    <button class="btn" id="theme-toggle" type="button" aria-pressed="false">Theme: auto</button>
+    <button class="btn" id="dir-toggle" type="button" aria-pressed="false">Demo direction: ltr</button>
+    <button class="btn" id="font-toggle" type="button" aria-pressed="false">System fonts only</button>
+    <span class="btn" id="font-status" aria-live="polite">Checking fonts…</span>
+  </div>
+</header>
+
+<main id="main">
+
+  <section id="summary">
+    <h1>Contract summary</h1>
+    <p><strong>Premise.</strong> State the premise in one sentence before the first build.</p>
+    <p><strong>Direction.</strong> Choose one primary family, with Choose one quiet counterpoint as a quiet counterpoint. <strong>Signature element:</strong> Name the one element this design will be remembered by.</p>
+    <nav aria-label="Jump to section">
+      <a href="#colors">Colors</a> ·
+      <a href="#type">Typography</a> ·
+      <a href="#scales">Spacing and elevation</a> ·
+      <a href="#motion">Motion</a> ·
+      <a href="#mirroring">Mirroring</a> ·
+      <a href="#layouts">Layouts</a> ·
+      <a href="#bidi">Mixed direction</a> ·
+      <a href="#a11y">Accessibility</a> ·
+      <a href="#selfcheck">Self-check</a>
+    </nav>
+  </section>
+
+  <section id="colors">
+    <h2>Colors</h2>
+    <p>Every semantic role, with its computed value and its WCAG contrast ratio recalculated in the browser at load. No external library is used.</p>
+    <div class="grid swatch-grid" id="color-swatches"></div>
+  </section>
+
+  <section id="type">
+    <h2>Typography</h2>
+    <div class="type-row"><div class="role">display</div><p class="sample" style="font-family:var(--ls-font-display);font-size:var(--ls-text-display);line-height:1.05;font-weight:600;">Sphinx of black quartz</p></div>
+    <div class="type-row"><div class="role">h2</div><p class="sample" style="font-family:var(--ls-font-display);font-size:var(--ls-text-h2);font-weight:600;">Pack my box with five dozen liquor jugs</p></div>
+    <div class="type-row"><div class="role">body at measure</div><p class="sample">The quick brown fox jumps over the lazy dog. This paragraph runs at the contract's intended measure so line length, leading, and word spacing can be judged together rather than from a single line of sample text.</p></div>
+    <div class="type-row isolate"><div class="role">mixed direction</div><p class="sample">A brand name inside a sentence: <bdi>Freelance Dashboard</bdi> is the current model.</p></div>
+    <div class="type-row isolate"><div class="role">isolated values</div><p class="sample">Phone <span dir="ltr">+1 555 0134</span> · Price 1,234.56 · Date 2026-09-02 · User <bdi>a_reader</bdi></p></div>
+    <div class="type-row"><div class="role">emphasis</div><p class="sample">Emphasis renders as <em>this treatment</em>, which is what the contract specifies for this script.</p></div>
+    <div class="type-row"><div class="role">mono</div><p class="sample"><code>--ls-color-primary: var(--ls-color-primary)</code></p></div>
+  </section>
+
+  <section id="scales">
+    <h2>Spacing, radii, and elevation</h2>
+    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(7rem,1fr));">
+      <div class="card" style="padding:var(--ls-space-2xs)">2xs</div>
+      <div class="card" style="padding:var(--ls-space-xs)">xs</div>
+      <div class="card" style="padding:var(--ls-space-sm)">sm</div>
+      <div class="card" style="padding:var(--ls-space-md)">md</div>
+      <div class="card" style="padding:var(--ls-space-lg)">lg</div>
+    </div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(7rem,1fr));margin-block-start:var(--ls-space-sm);">
+      <div class="card" style="border-radius:var(--ls-radius-sm)">sm</div>
+      <div class="card" style="border-radius:var(--ls-radius-md)">md</div>
+      <div class="card" style="border-radius:var(--ls-radius-lg)">lg</div>
+      <div class="card" style="border-radius:var(--ls-radius-full)">full</div>
+    </div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(11rem,1fr));margin-block-start:var(--ls-space-sm);">
+      <div class="card" style="box-shadow:none">flat</div>
+      <div class="card" style="box-shadow:var(--ls-shadow-raised)">raised</div>
+      <div class="card" style="box-shadow:var(--ls-shadow-overlay)">overlay</div>
+    </div>
+  </section>
+
+  <section id="motion">
+    <h2>Motion</h2>
+    <p>One micro-interaction, honoring <code>prefers-reduced-motion</code>. The slide moves from the logical start edge rather than a fixed physical side, so it stays correct when the reading direction flips.</p>
+    <button class="btn primary" id="motion-demo" type="button">Run motion demo</button>
+    <div id="motion-target" class="card" style="inline-size:9rem;margin-block-start:var(--ls-space-sm);transition:transform var(--ls-duration-normal) var(--ls-easing-standard);">Element</div>
+  </section>
+
+  <section id="mirroring">
+    <h2>Mirroring</h2>
+    <table>
+      <thead><tr><th>Element</th><th>Mirrors?</th><th>Reason</th></tr></thead>
+      <tbody>
+        <tr><td>Navigation arrow, next and previous</td><td class="pass">Yes</td><td>Expresses movement through the interface</td></tr>
+        <tr><td>Linear progress bar, breadcrumb, pagination</td><td class="pass">Yes</td><td>Fills along the reading direction</td></tr>
+        <tr><td>Clock, refresh, history, sync</td><td class="fail">No</td><td>Clockwise stays clockwise in every language</td></tr>
+        <tr><td>Media transport controls</td><td class="fail">No</td><td>Expresses media direction, not reading direction</td></tr>
+        <tr><td>Checkmark, keyboard, camera</td><td class="fail">No</td><td>Objects and non-directional glyphs</td></tr>
+        <tr><td>Numbers, phone numbers, URLs</td><td class="fail">No</td><td>Stay left-to-right, isolated in bdi</td></tr>
+        <tr><td>Data charts</td><td class="fail">No</td><td>Flip only when the data itself has reading order</td></tr>
+      </tbody>
+    </table>
+    <div style="display:flex;gap:var(--ls-space-xs);align-items:center;margin-block-start:var(--ls-space-sm);">
+      <svg class="mirror-demo mirror" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+      <span>Directional glyph, flipped by <code>[dir="rtl"] .mirror</code></span>
+    </div>
+    <div class="progress" style="margin-block-start:var(--ls-space-sm);"><div class="fill"></div></div>
+  </section>
+
+  <section id="layouts">
+    <h2>Layouts at three widths</h2>
+    <p>Container queries, not iframes, so the same markup recomposes inside each frame and the self-check can measure overflow directly.</p>
+    <div class="frame-set">
+      <div class="frame w360" data-frame data-width="360">
+        <div class="frame-label">360px</div>
+        <div class="frame-body" id="frame-360"></div>
+      </div>
+      <div class="frame w768" data-frame data-width="768">
+        <div class="frame-label">768px</div>
+        <div class="frame-body" id="frame-768"></div>
+      </div>
+      <div class="frame w1440" data-frame data-width="1440">
+        <div class="frame-label">1440px</div>
+        <div class="frame-body" id="frame-1440"></div>
+      </div>
+    </div>
+    <template id="demo-content">
+      <div class="demo-nav">
+        <strong>Freelance Dashboard</strong>
+        <span>Overview · Features · Support</span>
+      </div>
+      <div class="demo-hero card">
+        <h3>A short, clear headline</h3>
+        <p>One supporting sentence that states the product's central value without decoration.</p>
+        <button class="btn primary demo-cta" type="button">Primary action</button>
+      </div>
+      <form class="demo-form">
+        <div>
+          <label for="f-name">Full name <span class="req">*</span></label>
+          <input id="f-name" type="text" autocomplete="name">
+        </div>
+        <div>
+          <label for="f-phone">Phone <span class="req">*</span></label>
+          <input id="f-phone" type="tel" dir="ltr" placeholder="+1 555 0134">
+          <div class="error">Required — enter a valid phone number</div>
+        </div>
+      </form>
+      <div class="card-grid">
+        <div class="card">Card one</div>
+        <div class="card">Card two</div>
+        <div class="card">Card three</div>
+      </div>
+      <table style="margin-block-start:var(--ls-space-sm);">
+        <thead><tr><th>Specification</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>Battery</td><td class="num">12 h</td></tr>
+          <tr><td>Weight</td><td class="num">1,240 g</td></tr>
+        </tbody>
+      </table>
+    </template>
+  </section>
+
+  <section id="bidi">
+    <h2>Mixed-direction stress test</h2>
+    <ul>
+      <li class="isolate">URL: <bdi dir="ltr">https://example.com/en/product</bdi></li>
+      <li class="isolate">Range 10–20 units, percentage 50%, negative value -12.5</li>
+      <li class="isolate">Time <bdi dir="ltr">14:30</bdi>, email <bdi dir="ltr">hello@example.com</bdi></li>
+      <li class="isolate">Hashtag <bdi dir="ltr">#launch</bdi> and a numbered list: 1. first 2. second 3. third</li>
+      <li class="isolate">Parentheses inside a sentence (like this one) continue normally.</li>
+    </ul>
+  </section>
+
+  <section id="a11y">
+    <h2>Accessibility</h2>
+    <ul class="checklist">
+      <li>Set: <code>lang</code> and <code>dir</code> on the html element</li>
+      <li>Set: skip link to main content, first tab stop</li>
+      <li>Set: visible focus on every interactive element</li>
+      <li>Set: minimum 24-pixel target size on controls</li>
+      <li id="a11y-contrast">Pending: contrast summary, computed below</li>
+      <li><a href="#accessibility-statement">Accessibility statement</a></li>
+    </ul>
+  </section>
+
+  <section id="selfcheck">
+    <h2>Self-check panel</h2>
+    <div id="selfcheck-results"></div>
+  </section>
+
+</main>
+
+<footer class="bottom" id="accessibility-statement">
+  <p>This preview is generated from the frontmatter of <code>design/DESIGN.md</code>. To regenerate it after a token change, run the contract skill or the studio's token command. Do not hand-edit this file.</p>
+  <p>Approval log: No decision recorded yet; confirm this preview before the contract is approved.</p>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var themeBtn = document.getElementById("theme-toggle");
+  var themes = ["auto", "light", "dark"];
+  var themeIndex = 0;
+  themeBtn.addEventListener("click", function () {
+    themeIndex = (themeIndex + 1) % themes.length;
+    var theme = themes[themeIndex];
+    if (theme === "auto") {
+      document.documentElement.removeAttribute("data-theme");
+    } else {
+      document.documentElement.setAttribute("data-theme", theme);
+    }
+    themeBtn.setAttribute("aria-pressed", theme !== "auto" ? "true" : "false");
+    themeBtn.textContent = "Theme: " + theme;
+    runSelfCheck();
+  });
+
+  var dirBtn = document.getElementById("dir-toggle");
+  var main = document.getElementById("main");
+  var pageDir = document.documentElement.getAttribute("dir") || "ltr";
+  var demoDir = pageDir;
+  dirBtn.addEventListener("click", function () {
+    demoDir = demoDir === "rtl" ? "ltr" : "rtl";
+    main.setAttribute("dir", demoDir);
+    dirBtn.setAttribute("aria-pressed", (demoDir !== pageDir).toString());
+    dirBtn.textContent = "Demo direction: " + demoDir;
+    runSelfCheck();
+  });
+
+  var fontBtn = document.getElementById("font-toggle");
+  fontBtn.addEventListener("click", function () {
+    var systemOnly = document.body.classList.toggle("system-fonts");
+    fontBtn.setAttribute("aria-pressed", systemOnly.toString());
+    fontBtn.textContent = systemOnly ? "Fonts: system only" : "System fonts only";
+  });
+
+  var fontStatus = document.getElementById("font-status");
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(function () {
+      var loaded = 0;
+      document.fonts.forEach(function (f) { if (f.status === "loaded") loaded++; });
+      fontStatus.textContent = loaded
+        ? "Fonts loaded: " + loaded
+        : "Web fonts unavailable — system fallback in use";
+    });
+  } else {
+    fontStatus.textContent = "Font status unavailable in this browser";
+  }
+
+  var template = document.getElementById("demo-content");
+  ["frame-360", "frame-768", "frame-1440"].forEach(function (id) {
+    document.getElementById(id).appendChild(template.content.cloneNode(true));
+  });
+
+  var motionBtn = document.getElementById("motion-demo");
+  var motionTarget = document.getElementById("motion-target");
+  var slid = false;
+  motionBtn.addEventListener("click", function () {
+    slid = !slid;
+    var sign = (main.getAttribute("dir") || pageDir) === "rtl" ? "-" : "";
+    motionTarget.style.transform = slid ? "translateX(" + sign + "2.5rem)" : "none";
+  });
+
+  function resolveToRgb(cssColor) {
+    var probe = document.createElement("canvas");
+    var ctx = probe.getContext("2d");
+    ctx.fillStyle = "#000000";
+    try { ctx.fillStyle = cssColor; } catch (e) { /* keep the default */ }
+    ctx.fillRect(0, 0, 1, 1);
+    var data = ctx.getImageData(0, 0, 1, 1).data;
+    return [data[0], data[1], data[2]];
+  }
+  function relLuminance(rgb) {
+    var vals = rgb.map(function (v) {
+      v = v / 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * vals[0] + 0.7152 * vals[1] + 0.0722 * vals[2];
+  }
+  function contrastRatio(a, b) {
+    var lA = relLuminance(a), lB = relLuminance(b);
+    var lighter = Math.max(lA, lB), darker = Math.min(lA, lB);
+    return (lighter + 0.05) / (darker + 0.05);
+  }
+
+  /* ls-design:pairs:start */
+  var pairs = [
+    ["content on background", "--ls-color-content", "--ls-color-background", 4.5],
+    ["content-muted on background", "--ls-color-content-muted", "--ls-color-background", 4.5],
+    ["content on surface", "--ls-color-content", "--ls-color-surface", 4.5],
+    ["on-primary on primary", "--ls-color-on-primary", "--ls-color-primary", 4.5],
+    ["on-accent on accent", "--ls-color-on-accent", "--ls-color-accent", 4.5],
+    ["border-strong on surface", "--ls-color-border-strong", "--ls-color-surface", 3],
+    ["focus on background", "--ls-color-focus", "--ls-color-background", 3]
+  ];
+  /* ls-design:pairs:end */
+
+  function renderSwatches() {
+    var container = document.getElementById("color-swatches");
+    container.innerHTML = "";
+    var rootStyle = getComputedStyle(document.documentElement);
+    var failures = 0;
+    pairs.forEach(function (pair) {
+      var label = pair[0], fgVar = pair[1], bgVar = pair[2], min = pair[3];
+      var fgRgb = resolveToRgb(rootStyle.getPropertyValue(fgVar).trim());
+      var bgRgb = resolveToRgb(rootStyle.getPropertyValue(bgVar).trim());
+      var ratio = contrastRatio(fgRgb, bgRgb);
+      var ok = ratio >= min;
+      if (!ok) failures++;
+      var swatch = document.createElement("div");
+      swatch.className = "swatch";
+      swatch.style.background = "var(" + bgVar + ")";
+      swatch.style.color = "var(" + fgVar + ")";
+      swatch.innerHTML =
+        '<span class="name">' + label + "</span>" +
+        '<span class="value">' + rootStyle.getPropertyValue(fgVar).trim() + "</span>" +
+        '<span class="ratio">' + ratio.toFixed(2) + ":1 (target " + min.toFixed(1) + ":1)</span>" +
+        '<span class="' + (ok ? "pass" : "fail") + '">' + (ok ? "Pass" : "Fail") + "</span>";
+      container.appendChild(swatch);
+    });
+    document.getElementById("a11y-contrast").textContent = failures === 0
+      ? "All " + pairs.length + " contrast pairs pass"
+      : failures + " of " + pairs.length + " contrast pairs fail";
+    return failures;
+  }
+
+  var SUSPICIOUS = [0x200B, 0x200C, 0x200D, 0x2060, 0xFEFF];
+  for (var cp = 0x202A; cp <= 0x202E; cp++) SUSPICIOUS.push(cp);
+  for (var cp2 = 0x2066; cp2 <= 0x2069; cp2++) SUSPICIOUS.push(cp2);
+
+  function countBidiControls(text) {
+    var count = 0;
+    for (var i = 0; i < text.length; i++) {
+      if (SUSPICIOUS.indexOf(text.charCodeAt(i)) !== -1) count++;
+    }
+    return count;
+  }
+
+  function checkOverflow() {
+    var overflowing = [];
+    Array.prototype.forEach.call(document.querySelectorAll("[data-frame]"), function (frame) {
+      var body = frame.querySelector(".frame-body");
+      if (body && body.scrollWidth > body.clientWidth + 1) {
+        overflowing.push(frame.getAttribute("data-width") + "px");
+      }
+    });
+    return overflowing;
+  }
+
+  function checkPhysicalCss() {
+    var styleText = document.querySelector("style").textContent;
+    var offenders = 0;
+    styleText.split("\n").forEach(function (line) {
+      if (line.indexOf("physical-ok") !== -1) return;
+      if (/margin-left|margin-right|padding-left|padding-right|border-left|border-right|^\s*left\s*:|^\s*right\s*:|text-align\s*:\s*(left|right)|float\s*:\s*(left|right)/i.test(line)) { // physical-ok: this line names the banned properties in order to detect them
+        offenders++;
+      }
+    });
+    return offenders;
+  }
+
+  function runSelfCheck() {
+    var results = document.getElementById("selfcheck-results");
+    var bidiCount = countBidiControls(document.body.innerText || document.body.textContent || "");
+    var overflowing = checkOverflow();
+    var physicalCount = checkPhysicalCss();
+    var contrastFailures = renderSwatches();
+    var fontsLoaded = 0;
+    if (document.fonts) { document.fonts.forEach(function (f) { if (f.status === "loaded") fontsLoaded++; }); }
+
+    var items = [
+      ["Unicode bidirectional control characters in body", bidiCount, bidiCount === 0],
+      ["Frames overflowing horizontally", overflowing.length ? overflowing.join(", ") : "0", overflowing.length === 0],
+      ["Unjustified physical directional CSS", physicalCount, physicalCount === 0],
+      ["Contrast pairs failing", contrastFailures, contrastFailures === 0],
+      ["Web fonts loaded", fontsLoaded, true]
+    ];
+
+    results.innerHTML = "";
+    items.forEach(function (item) {
+      var row = document.createElement("div");
+      row.className = "selfcheck-item";
+      var mark = item[2] ? '<span class="pass">Pass</span>' : '<span class="fail">Fail</span>';
+      row.innerHTML = "<span>" + item[0] + "</span><span>" + item[1] + " " + mark + "</span>";
+      results.appendChild(row);
+    });
+  }
+
+  window.addEventListener("load", function () {
+    runSelfCheck();
+    window.setTimeout(runSelfCheck, 300);
+  });
+})();
+</script>
+</body>
+</html>

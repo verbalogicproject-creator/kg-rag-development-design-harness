@@ -1,0 +1,128 @@
+module: ui/client
+runtime: vite, react 19, tailwind 4, typescript, vitest with testing-library
+design:
+  contract: design/DESIGN.md
+  surfaces: [pipeline-board, scout-inbox, opportunity-detail, profile]
+  target_stack: vite-react-tailwind
+requirements:
+  - id: REQ-01
+    ears: WHEN the board is rendered THE SYSTEM SHALL show one column per pipeline stage, each listing only the opportunities at that stage.
+    verified_by: [SC-01]
+  - id: REQ-02
+    ears: WHEN an opportunity is moved to another column THE SYSTEM SHALL apply the engine's transition and leave the board unchanged if the engine rejects it.
+    verified_by: [SC-02, SC-03]
+  - id: REQ-03
+    ears: WHEN the scout inbox is rendered THE SYSTEM SHALL list scored listings highest first and show the reasons behind each score.
+    verified_by: [SC-04]
+  - id: REQ-04
+    ears: WHERE a surface has no data THE SYSTEM SHALL render an explicit empty state naming the next action, never placeholder rows.
+    verified_by: [SC-05]
+  - id: REQ-05
+    ears: WHILE a scout run is in progress THE SYSTEM SHALL show which sources are being read and report each source's outcome when the run ends.
+    verified_by: [SC-06]
+  - id: REQ-06
+    ears: WHEN any surface renders THE SYSTEM SHALL take every colour, type, spacing and radius value from the design contract's tokens rather than from a literal.
+    verified_by: [SC-07]
+types: |
+  import type { Opportunity, Stage } from '../core/opportunity';
+  import type { Score, Profile } from '../core/match';
+  import type { ScoutReport } from '../infra/feeds';
+
+  interface Column {
+    readonly stage: Stage;
+    readonly label: string;
+    readonly items: readonly Opportunity[];
+  }
+
+  interface InboxRow {
+    readonly opportunity: Opportunity;
+    readonly score: Score;
+    readonly isNew: boolean;
+  }
+
+  interface EmptyState {
+    readonly headline: string;
+    readonly action: string;      // the next thing the person can do
+  }
+
+  type Surface = 'pipeline-board' | 'scout-inbox' | 'opportunity-detail' | 'profile';
+
+  interface DashboardProps {
+    readonly opportunities: readonly Opportunity[];
+    readonly profile: Profile | null;
+    readonly lastScout: ScoutReport | null;
+    readonly onAdvance: (id: string, to: Stage) => void;
+    readonly onScout: () => void;
+  }
+contracts:
+  "toBoardColumns(opportunities: readonly Opportunity[], stages: readonly Stage[]): readonly Column[]":
+    kind: query
+    precondition: stages lists the pipeline stages in display order.
+    postcondition: Returns one column per stage in the given order, each holding only the opportunities at that stage, with every input opportunity appearing in exactly one column. The input array is not mutated.
+  "toInboxRows(scored: readonly { opportunity: Opportunity; score: Score }[], seenIds: readonly string[]): readonly InboxRow[]":
+    kind: query
+    precondition: scored is the output of rankOpportunities and seenIds lists opportunities already reviewed.
+    postcondition: Returns the rows in the order given, marking isNew true exactly for opportunities whose id is absent from seenIds.
+  "emptyStateFor(surface: Surface): EmptyState":
+    kind: query
+    precondition: surface is one of the declared surfaces.
+    postcondition: Returns a headline and a concrete next action for that surface. Never returns sample or placeholder content.
+  "PipelineBoard(props: DashboardProps): JSX.Element":
+    kind: query
+    precondition: props.opportunities is defined, possibly empty.
+    postcondition: Renders one region per stage from toBoardColumns, renders the board's empty state when there are no opportunities, and calls onAdvance with the opportunity id and target stage when a card is moved.
+  "ScoutInbox(props: DashboardProps): JSX.Element":
+    kind: query
+    precondition: props.profile may be null, in which case scoring is not shown.
+    postcondition: Renders scored listings highest first with each score's reasons visible, shows per-source outcomes after a run, and calls onScout when a run is requested.
+  "OpportunityDetail(props: { opportunity: Opportunity; score: Score | null }): JSX.Element":
+    kind: query
+    precondition: opportunity is a stored opportunity.
+    postcondition: Renders the opportunity's fields, its stage history in order, and its score reasons when a score is supplied. Renders a field's absence explicitly rather than substituting a value.
+  "ProfileForm(props: { profile: Profile | null; onSave: (profile: Profile) => void }): JSX.Element":
+    kind: query
+    precondition: profile may be null when none has been saved.
+    postcondition: Renders the profile's skills, minimum rate, keywords and exclusions for editing, and calls onSave with the edited profile. With a null profile it renders empty fields, never invented defaults.
+  "App(props: DashboardProps): JSX.Element":
+    kind: query
+    precondition: The store has been loaded.
+    postcondition: Renders the four surfaces behind navigation, each reachable, with no navigation target left unresolved.
+external_sources: []
+verification:
+  test_suite: src/__tests__/client.test.tsx
+  scenarios:
+    - id: SC-01
+      given: opportunities spread across several stages
+      when: the board is rendered
+      then: each column lists only its own stage and every opportunity appears once
+      test_name: the board puts every opportunity in exactly one stage column
+    - id: SC-02
+      given: a card at lead
+      when: it is moved to drafting
+      then: onAdvance is called with that id and stage
+      test_name: moving a card requests the engine transition
+    - id: SC-03
+      given: a card at won
+      when: a move is attempted
+      then: the board is unchanged and no transition is requested
+      test_name: the board refuses a move the engine would reject
+    - id: SC-04
+      given: scored listings with different scores
+      when: the inbox is rendered
+      then: they appear highest first with their reasons visible
+      test_name: the inbox ranks by score and shows why
+    - id: SC-05
+      given: no opportunities at all
+      when: the board is rendered
+      then: an empty state naming the next action is shown and no placeholder rows appear
+      test_name: an empty board shows a real empty state, not sample rows
+    - id: SC-06
+      given: a completed scout run with one failed source
+      when: the inbox is rendered
+      then: each source outcome is reported including the failure
+      test_name: the inbox reports every source outcome after a run
+    - id: SC-07
+      given: the built stylesheet and components
+      when: they are scanned for colour and size values
+      then: every value resolves to a design token and no literal remains
+      test_name: every visual value comes from a design token
