@@ -56,7 +56,24 @@ export function approvalDigest(blueprintDir: string, extraFiles: string[] = [], 
 
   if (designDir && existsSync(designDir)) {
     for (const rel of walk(designDir)) {
-      if (rel.startsWith('.studio') || rel.endsWith('.lock')) continue;
+      /* An approval covers what a person approved: the contract, the tokens,
+         the screens. Not the directory's incidental contents.
+         
+         Two things were leaking in. `design-check` writes
+         __checks__/tokens.report.json, so RUNNING the design gate changed the
+         digest the approval is bound to — a read-only check invalidating the
+         approval it had just verified. And an unrelated tool kept read logs in
+         design/.vouch/, so merely LOOKING at a screen did the same. Between
+         them the digest moved from e144d4d7 to 28a0a5f4 to 947e32ff without a
+         single authored byte changing.
+         
+         So: no dot-prefixed segment anywhere in the path — that is tooling
+         state by convention, which is what the original `.studio` exclusion
+         was already saying — no lockfiles, and none of the harness's own
+         generated reports. */
+      if (rel.endsWith('.lock')) continue;
+      if (rel.split(/[/\\]/).some((segment) => segment.startsWith('.'))) continue;
+      if (rel.startsWith('__checks__')) continue;
       add(join(designDir, rel), `design/${rel}`);
     }
   }

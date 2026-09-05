@@ -374,3 +374,46 @@ test('handoff seeding still refuses a path that escapes the project', () => {
   mkdirSync(join(root, 'design', 'handoff'), { recursive: true });
   assert.throws(() => handoffSeed(root, '../../elsewhere/handoff'), /outside/);
 });
+
+/* ---- an approval covers authored content, not what the directory accumulates ---- */
+
+test('verifying a design does not change what was approved', () => {
+  /* The failure this prevents was live. `design-check` writes its report into
+   * design/__checks__/, and an unrelated tool kept read logs in design/.vouch/,
+   * both inside the directory the digest walks. So running the design gate —
+   * and even merely reading a screen — moved the digest the approval is bound
+   * to. Measured on the dashboard: e144d4d7 to 28a0a5f4 to 947e32ff without a
+   * single authored byte changing.
+   *
+   * An approval that a read-only check can invalidate is not an approval of
+   * anything stable, and re-approving after every verification would train a
+   * person to click through the one gate that is supposed to mean something. */
+  const root = mkdtempSync(join(tmpdir(), 'aose-digest-'));
+  const design = join(root, 'design');
+  mkdirSync(design, { recursive: true });
+  writeFileSync(join(design, 'DESIGN.md'), '# contract\n');
+  writeFileSync(join(design, 'tokens.css'), ':root{--ls-a:#fff}\n');
+
+  const approved = approvalDigest(root, [], design).value;
+
+  // The harness's own verification output.
+  mkdirSync(join(design, '__checks__'), { recursive: true });
+  writeFileSync(join(design, '__checks__', 'tokens.report.json'), '{"ran":1}');
+  assert.equal(approvalDigest(root, [], design).value, approved, 'a check report is not authored content');
+
+  // Another tool's state, at the top level and nested.
+  mkdirSync(join(design, '.vouch'), { recursive: true });
+  writeFileSync(join(design, '.vouch', 'reads.json'), '[]');
+  mkdirSync(join(design, 'screens', '.vouch'), { recursive: true });
+  writeFileSync(join(design, 'screens', '.vouch', 'reads.json'), '[]');
+  assert.equal(approvalDigest(root, [], design).value, approved, 'tooling state is not authored content');
+
+  // Re-running the same check with different results still must not move it.
+  writeFileSync(join(design, '__checks__', 'tokens.report.json'), '{"ran":2}');
+  assert.equal(approvalDigest(root, [], design).value, approved);
+
+  // But an authored change must still move it, or the digest guards nothing.
+  writeFileSync(join(design, 'tokens.css'), ':root{--ls-a:#000}\n');
+  assert.notEqual(approvalDigest(root, [], design).value, approved,
+    'editing the tokens must invalidate the approval');
+});
