@@ -45,6 +45,20 @@ export const TRANSITIONS: Transition[] = [
   { from: 'GATED', event: 'converge_fail', to: 'GATED' },
   { from: 'CONVERGED', event: 'export', to: 'EXPORTED' },
   { from: 'EXPORTED', event: 'archive', to: 'ARCHIVED' },
+  /* A defect found after export.
+     
+     The lifecycle modelled idea-to-export as one way, so an exported project
+     had exactly one legal move: archive. That is only right if export means
+     correct, and it does not — LINT-36 found a shipped bundle that no browser
+     could load AFTER this project exported, from a contradiction the blueprint
+     had stated all along. Without a way back the choices were to archive
+     something broken or to edit the ledger by hand, and the second is how a
+     state machine stops meaning anything.
+     
+     `respec` is already the "the specification was wrong, go fix it" edge, and
+     its allowance already bounds how often that can happen, so this reuses
+     both rather than inventing a softer door. */
+  { from: 'EXPORTED', event: 'respec', to: 'COMPILED' },
   { from: 'IDEA_DRAFT', event: 'abandon', to: 'ABANDONED' },
   { from: 'IDEA_READY', event: 'abandon', to: 'ABANDONED' },
   { from: 'COMPILED', event: 'abandon', to: 'ABANDONED' },

@@ -19,9 +19,11 @@ task:
     - test/store.test.js
   execution_gate:
     command: node --test test/store.test.js
-    success_criteria: Exit code 0 with one passing test per verification scenario,
-      using node:sqlite against ':memory:' or a temporary file. No test leaves a
-      database behind.
+    success_criteria: Exit code 0 with one passing test per verification scenario.
+      The sqlite backend is exercised against ':memory:' or a temporary file;
+      the browser backend is exercised by stubbing the storage API the module
+      looks for, so both paths are tested from node. No test leaves a database
+      behind.
     timeout_minutes: 10
   budget:
     max_attempts: 2

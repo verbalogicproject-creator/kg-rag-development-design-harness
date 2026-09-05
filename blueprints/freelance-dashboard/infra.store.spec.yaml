@@ -1,11 +1,16 @@
 module: infra/store
-runtime: esm-only, node24
+# Both hosts, deliberately. The previous "esm-only, node24" was accurate about
+# the implementation and fatal for the surface: ui/client is browser-targeted
+# and depends on this module, so a node-only store put
+# `import{DatabaseSync}from"node:sqlite"` at the top of the shipped bundle,
+# where no browser can load it. LINT-36 now compares these two declarations.
+runtime: esm-only, node24, browser
 requirements:
   - id: REQ-01
-    ears: WHEN the store is opened against a new file THE SYSTEM SHALL create its schema and record the schema version.
+    ears: WHEN the store is opened against a new location THE SYSTEM SHALL create its schema and record the schema version.
     verified_by: [SC-01]
   - id: REQ-02
-    ears: WHEN the store is opened against a file from an older schema version THE SYSTEM SHALL migrate it forward without losing existing rows.
+    ears: WHEN the store is opened against a location from an older schema version THE SYSTEM SHALL migrate it forward without losing existing rows.
     verified_by: [SC-02]
   - id: REQ-03
     ears: WHEN an opportunity is saved twice THE SYSTEM SHALL update the existing row rather than creating a duplicate.
@@ -14,34 +19,58 @@ requirements:
     ears: WHEN opportunities are listed by stage THE SYSTEM SHALL return only that stage, most recently updated first.
     verified_by: [SC-04]
   - id: REQ-05
-    ears: IF a write fails THE SYSTEM SHALL leave the database unchanged and return a discriminated error.
+    ears: IF a write fails THE SYSTEM SHALL leave the store unchanged and return a discriminated error.
     verified_by: [SC-05]
+  - id: REQ-06
+    ears: WHERE the module is loaded by a bundler THE SYSTEM SHALL carry no static import of a host-only module, so a browser build contains no unresolvable specifier.
+    verified_by: [SC-06]
+  - id: REQ-07
+    ears: WHEN opportunities are listed by stage THE SYSTEM SHALL resolve the query through an index rather than scanning every row.
+    verified_by: [SC-07]
+  - id: REQ-08
+    ears: WHEN a browser-backed store is reopened at the same location THE SYSTEM SHALL return the rows written before it was closed.
+    verified_by: [SC-08]
 types: |
   import type { Opportunity, Stage, Result } from '../core/opportunity';
   import type { Profile } from '../core/match';
 
-  type StoreError = 'NOT_FOUND' | 'WRITE_FAILED' | 'MIGRATION_FAILED';
+  type StoreError = 'NOT_FOUND' | 'WRITE_FAILED' | 'MIGRATION_FAILED' | 'NO_BACKEND';
+
+  /* Which host the module found at load time. Reported rather than assumed, so
+     a caller can say which store it is talking to instead of guessing. */
+  type Backend = 'sqlite' | 'web' | 'memory';
 
   interface Store {
-    readonly path: string;
+    /* Opaque to this contract: a file path under node, a database name in a
+       browser, ':memory:' anywhere for a store that persists nothing. */
+    readonly location: string;
+    readonly backend: Backend;
     readonly schemaVersion: number;
     close(): void;
   }
 contracts:
-  "openStore(path: string): Result<Store, StoreError>":
+  "openStore(location: string): Result<Store, StoreError>":
     kind: transition
-    precondition: path is a writable file path or the string ':memory:'.
-    postcondition: Returns an open store whose schema is at the current version, creating or migrating it as needed. Existing rows survive a migration. Returns MIGRATION_FAILED without altering the file when migration cannot complete.
-    errors: [MIGRATION_FAILED, WRITE_FAILED]
+    precondition: location is a writable file path, a browser database name, or the string ':memory:'.
+    postcondition: >-
+      Selects a backend from the host — node:sqlite under node, a browser
+      storage API in a browser, in-memory for ':memory:' — and returns an open
+      store whose schema is at the current version, creating or migrating it as
+      needed. Existing rows survive a migration. Returns MIGRATION_FAILED
+      without altering the store when migration cannot complete, and NO_BACKEND
+      when the host offers no persistence the module can use. The node backend
+      is reached only through a dynamic import inside a host check, so a browser
+      bundle never carries the specifier.
+    errors: [MIGRATION_FAILED, WRITE_FAILED, NO_BACKEND]
   "saveOpportunity(store: Store, opportunity: Opportunity): Result<Opportunity, StoreError>":
     kind: transition
     precondition: The store is open and the opportunity has an id.
-    postcondition: Inserts or updates the row keyed by id and returns the stored opportunity. Writing the same opportunity twice leaves exactly one row. On failure the database is unchanged.
+    postcondition: Inserts or updates the row keyed by id and returns the stored opportunity. Writing the same opportunity twice leaves exactly one row. On failure the store is unchanged.
     errors: [WRITE_FAILED]
   "listOpportunities(store: Store, stage: Stage | null): Result<readonly Opportunity[], StoreError>":
     kind: transition
     precondition: The store is open.
-    postcondition: Returns opportunities at the requested stage, or all of them when stage is null, ordered by last update descending.
+    postcondition: Returns opportunities at the requested stage, or all of them when stage is null, ordered by last update descending. The stage query is served by an index on (stage, updated_at), not a full scan.
     errors: [NOT_FOUND]
   "saveProfile(store: Store, profile: Profile): Result<Profile, StoreError>":
     kind: transition
@@ -57,15 +86,15 @@ verification:
   test_suite: test/store.test.js
   scenarios:
     - id: SC-01
-      given: a path with no database
+      given: a location with no store
       when: the store is opened
       then: the schema is created at the current version
       test_name: creates the schema on first open
     - id: SC-02
-      given: a database written at an older schema version
+      given: a store written at an older schema version
       when: the store is opened
       then: it migrates forward and the existing rows survive
-      test_name: migrates an older database without losing rows
+      test_name: migrates an older store without losing rows
     - id: SC-03
       given: an opportunity saved twice
       when: it is listed
@@ -79,5 +108,20 @@ verification:
     - id: SC-05
       given: a store whose write fails
       when: a save is attempted
-      then: WRITE_FAILED is returned and the database is unchanged
-      test_name: a failed write leaves the database untouched
+      then: WRITE_FAILED is returned and the store is unchanged
+      test_name: a failed write leaves the store untouched
+    - id: SC-06
+      given: the module's own source text
+      when: its top-level import statements are read
+      then: "none of them names a node: module, because a bundler resolves static imports whether or not they ever run"
+      test_name: the module carries no static host-only import
+    - id: SC-07
+      given: a sqlite-backed store holding opportunities across stages
+      when: the query plan for a listing by stage is examined
+      then: the plan uses an index and does not scan the table
+      test_name: listing by stage is served by an index
+    - id: SC-08
+      given: a browser-backed store, with the browser storage API stubbed
+      when: rows are written, the store is closed and reopened at the same location
+      then: the rows written before the close are returned
+      test_name: a browser store survives being closed and reopened

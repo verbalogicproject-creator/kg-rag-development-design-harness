@@ -67,3 +67,18 @@ test('every transition target is a state some transition can leave', () => {
     assert.ok(legalEvents(transition.to).length > 0, `${transition.to} is a dead end`);
   }
 });
+
+test('a defect found after export can be repaired, not just archived', () => {
+  /* EXPORTED used to allow only `archive`, which assumes export means correct.
+   * It does not: LINT-36 found that the freelance dashboard had shipped a
+   * bundle opening with `import{DatabaseSync}from"node:sqlite"` — unloadable
+   * in any browser — and the project had already exported. The only moves were
+   * to archive something broken or to edit the ledger by hand. */
+  assert.equal(nextState('EXPORTED', 'respec'), 'COMPILED');
+  assert.equal(nextState('EXPORTED', 'archive'), 'ARCHIVED', 'archiving still works');
+  // The repair path is the existing one, so the respec allowance still bounds
+  // it. Nothing else opens up.
+  assert.throws(() => nextState('EXPORTED', 'dispatch'), /Illegal transition/);
+  assert.throws(() => nextState('EXPORTED', 'export'), /Illegal transition/);
+  assert.throws(() => nextState('ARCHIVED', 'respec'), /Illegal transition/);
+});

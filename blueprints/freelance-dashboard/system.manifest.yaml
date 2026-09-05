@@ -28,7 +28,7 @@ system:
       spec: infra.feeds.spec.yaml
       task: infra.feeds.task.yaml
     - domain: infra/store
-      responsibility: SQLite persistence for opportunities, profile and scout history, with schema migration.
+      responsibility: Persistence for opportunities, profile and scout history, with schema migration, over whichever backend the host offers — node:sqlite, browser storage, or memory.
       depends_on: [core/opportunity]
       exports: [openStore, saveOpportunity, listOpportunities, saveProfile, loadProfile]
       spec: infra.store.spec.yaml
