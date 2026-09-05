@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Profile — empty</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="screen.css">
+</head>
+<body>
+<!--
+  With no profile saved the fields render empty — never invented defaults
+  (ART-08). Placeholders describe the shape of an answer; they are not values,
+  and nothing here is submitted unless the person types it.
+-->
+<div class="shell">
+  <header class="topbar">
+    <h1 class="wordmark">Pipeline</h1>
+    <nav class="nav" aria-label="Surfaces">
+      <a href="pipeline-board.html">Board</a>
+      <a href="scout-inbox.html">Inbox</a>
+      <a href="profile.html" aria-current="page">Profile</a>
+    </nav>
+  </header>
+
+  <main>
+    <form class="document">
+      <div>
+        <h2>Profile</h2>
+        <p class="tally">Nothing saved yet — scoring is off until this is filled.</p>
+      </div>
+
+      <div class="empty">
+        <p>Every fit score is computed against these four answers. Until they exist, a scout run can fetch listings but cannot rank them.</p>
+      </div>
+
+      <section>
+        <h3>What you do</h3>
+        <div class="field">
+          <label for="skills">Skills</label>
+          <input id="skills" type="text" value="" placeholder="e.g. rails, postgres, typescript">
+          <span class="hint">Comma separated. A listing matching any of these gains points.</span>
+        </div>
+      </section>
+
+      <section>
+        <h3>What it has to pay</h3>
+        <div class="field">
+          <label for="rate">Minimum hourly rate</label>
+          <input id="rate" type="text" inputmode="numeric" value="" placeholder="e.g. 65">
+          <span class="hint">In USD. Anything below this loses points rather than being hidden.</span>
+        </div>
+      </section>
+
+      <section>
+        <h3>What to look for, and what to skip</h3>
+        <div class="field">
+          <label for="keywords">Keywords</label>
+          <input id="keywords" type="text" value="" placeholder="e.g. api, migration, performance">
+        </div>
+        <div class="field">
+          <label for="exclusions">Exclusions</label>
+          <input id="exclusions" type="text" value="" placeholder="e.g. wordpress, unpaid trial">
+          <span class="hint">A listing matching an exclusion is scored down and marked, never silently dropped.</span>
+        </div>
+      </section>
+
+      <div>
+        <button type="button" class="action">Save profile</button>
+      </div>
+    </form>
+  </main>
+</div>
+</body>
+</html>

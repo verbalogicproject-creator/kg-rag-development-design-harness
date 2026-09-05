@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Opportunity detail — not found</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="screen.css">
+</head>
+<body>
+<!--
+  For a detail surface, "empty" means the opportunity is not there — a stale
+  link, or something dismissed since. It states the fact and offers the way
+  back. It does not invent a plausible record to fill the page (ART-08).
+-->
+<div class="shell">
+  <header class="topbar">
+    <h1 class="wordmark">Pipeline</h1>
+    <nav class="nav" aria-label="Surfaces">
+      <a href="pipeline-board.html">Board</a>
+      <a href="scout-inbox.html">Inbox</a>
+      <a href="profile.html">Profile</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="document">
+      <div>
+        <h2>That opportunity is not here</h2>
+        <p class="tally">It may have been dismissed, or the link is out of date.</p>
+      </div>
+      <div class="empty">
+        <p>Nothing was found for this reference. Opportunities are stored locally, so a link from another machine will not resolve here.</p>
+        <div class="row">
+          <button type="button" class="action">Back to the board</button>
+          <span class="or">or</span>
+          <button type="button" class="action quiet">Open the inbox</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

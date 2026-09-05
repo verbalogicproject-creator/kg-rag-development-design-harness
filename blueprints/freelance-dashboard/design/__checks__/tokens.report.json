@@ -7,7 +7,7 @@
     }
   ],
   "blueprint": "freelance-dashboard",
-  "tokens_hash": "sha256:c0951e1a1aa3f4a673ed8cc85a06b79ff7173556982d91545822ccf8e74bf58f",
+  "tokens_hash": "sha256:44c95ecdc528ed9990c3d52110ccb711924d3eafe21cd651efec4b018ab31bff",
   "ok": true,
   "checks": [
     {

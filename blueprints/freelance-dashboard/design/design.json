@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "rev": 2,
-  "seq": 1,
+  "rev": 11,
+  "seq": 10,
   "project": {
     "name": "Freelance Dashboard",
     "slug": "freelance-dashboard",
@@ -10,8 +10,8 @@
     "dir": "ltr",
     "createdAt": "2026-09-04T23:10:36.579Z"
   },
-  "status": "draft",
-  "tokensHash": "c0951e1a1aa3f4a673ed8cc85a06b79ff7173556982d91545822ccf8e74bf58f",
+  "status": "screens",
+  "tokensHash": "44c95ecdc528ed9990c3d52110ccb711924d3eafe21cd651efec4b018ab31bff",
   "contrastPairs": [
     {
       "foreground": "content",
@@ -52,7 +52,264 @@
   "generator": {
     "kind": "agent"
   },
-  "screens": [],
+  "screens": [
+    {
+      "id": "scr_7687f65b",
+      "slug": "pipeline-board-populated",
+      "title": "Pipeline board — populated",
+      "device": "desktop",
+      "width": 1440,
+      "height": 900,
+      "source": {
+        "kind": "agent",
+        "prompt": "Board with one column per pipeline stage; fit score as the signature object; Add opportunity as the single accent action."
+      },
+      "revision": 1,
+      "files": {
+        "html": "screens/pipeline-board-populated/r1/code.html",
+        "png": "screens/pipeline-board-populated/r1/screen.png",
+        "sha256": {
+          "html": "7c478a96b3393a91771a1931c027f016e99b59be8b62286d342e3a9aae0dcb0c",
+          "png": "2e2312b65fb92c5ed498cd9538907cfb86905db09e953ac4885a4a71b311667d"
+        }
+      },
+      "decision": {
+        "state": "pending",
+        "notes": ""
+      },
+      "tokenDriven": true,
+      "staleTokens": false,
+      "capturedTokensHash": "44c95ecdc528ed9990c3d52110ccb711924d3eafe21cd651efec4b018ab31bff",
+      "canvas": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": "scr_26fb0890",
+      "slug": "pipeline-board-empty",
+      "title": "Pipeline board — empty",
+      "device": "desktop",
+      "width": 1440,
+      "height": 900,
+      "source": {
+        "kind": "agent",
+        "prompt": "REQ-04: the empty state IS the tool — paste box and scout button above the board, no placeholder rows, column hints as a legend."
+      },
+      "revision": 1,
+      "files": {
+        "html": "screens/pipeline-board-empty/r1/code.html",
+        "png": "screens/pipeline-board-empty/r1/screen.png",
+        "sha256": {
+          "html": "5c3498433693448f238b045e0ebe56860ec5166b5ed179a3a53c138bd553ee4c",
+          "png": "6c4370fd994f02f531a88ad3aff2f146a1bdf4e8f0418a22b7526ad9b6195eb1"
+        }
+      },
+      "decision": {
+        "state": "pending",
+        "notes": ""
+      },
+      "tokenDriven": true,
+      "staleTokens": false,
+      "capturedTokensHash": "44c95ecdc528ed9990c3d52110ccb711924d3eafe21cd651efec4b018ab31bff",
+      "canvas": {
+        "x": 1560,
+        "y": 0
+      }
+    },
+    {
+      "id": "scr_cc2e80b2",
+      "slug": "scout-inbox-populated",
+      "title": "Scout inbox — populated",
+      "device": "desktop",
+      "width": 1440,
+      "height": 900,
+      "source": {
+        "kind": "agent",
+        "prompt": "Listings ranked by fit with reasons hung off the row they explain; Track/Dismiss triage; per-source outcomes including the failure."
+      },
+      "revision": 1,
+      "files": {
+        "html": "screens/scout-inbox-populated/r1/code.html",
+        "png": "screens/scout-inbox-populated/r1/screen.png",
+        "sha256": {
+          "html": "814112abcbc8f2c044e03ad6297e8b83f109f3d87fba222a436d2819dfb4b0ba",
+          "png": "70f237251447430782c594f83fc7c5f9b0d1dc4e45b691814e6cdfda05a5ceb7"
+        }
+      },
+      "decision": {
+        "state": "pending",
+        "notes": ""
+      },
+      "tokenDriven": true,
+      "staleTokens": false,
+      "capturedTokensHash": "44c95ecdc528ed9990c3d52110ccb711924d3eafe21cd651efec4b018ab31bff",
+      "canvas": {
+        "x": 3120,
+        "y": 0
+      }
+    },
+    {
+      "id": "scr_bdebfd6f",
+      "slug": "scout-inbox-empty",
+      "title": "Scout inbox — empty",
+      "device": "desktop",
+      "width": 1440,
+      "height": 900,
+      "source": {
+        "kind": "agent",
+        "prompt": "Reveals the dependency rather than hiding it: scoring needs a profile, so an unrun scout says so."
+      },
+      "revision": 1,
+      "files": {
+        "html": "screens/scout-inbox-empty/r1/code.html",
+        "png": "screens/scout-inbox-empty/r1/screen.png",
+        "sha256": {
+          "html": "156420a620b04853a6cd3a4fb506fcee3e64111eccbdac607afc6c1236a4071b",
+          "png": "f8d93d1fe4a8deacdf4af14c0106b539933639b899dc21edab42a87fb2f02502"
+        }
+      },
+      "decision": {
+        "state": "pending",
+        "notes": ""
+      },
+      "tokenDriven": true,
+      "staleTokens": false,
+      "capturedTokensHash": "44c95ecdc528ed9990c3d52110ccb711924d3eafe21cd651efec4b018ab31bff",
+      "canvas": {
+        "x": 4680,
+        "y": 0
+      }
+    },
+    {
+      "id": "scr_a181a085",
+      "slug": "opportunity-detail-populated",
+      "title": "Opportunity detail — populated",
+      "device": "desktop",
+      "width": 1440,
+      "height": 900,
+      "source": {
+        "kind": "agent",
+        "prompt": "The editorial counterpoint: reads as a document. Stage spine, the fit object expanded into its reasons, and absent fields rendered as absent rather than filled."
+      },
+      "revision": 1,
+      "files": {
+        "html": "screens/opportunity-detail-populated/r1/code.html",
+        "png": "screens/opportunity-detail-populated/r1/screen.png",
+        "sha256": {
+          "html": "c53914cbd3a133090bdcb0938734d04892d12ca91d34b2301cc053812cb51825",
+          "png": "cbe2b330ec562a7b26d038e42bda427e7c1a548d3c2d9b3bd6ce378ffb5359ea"
+        }
+      },
+      "decision": {
+        "state": "pending",
+        "notes": ""
+      },
+      "tokenDriven": true,
+      "staleTokens": false,
+      "capturedTokensHash": "44c95ecdc528ed9990c3d52110ccb711924d3eafe21cd651efec4b018ab31bff",
+      "canvas": {
+        "x": 0,
+        "y": 1020
+      }
+    },
+    {
+      "id": "scr_d2a67403",
+      "slug": "opportunity-detail-not-found",
+      "title": "Opportunity detail — not found",
+      "device": "desktop",
+      "width": 1440,
+      "height": 900,
+      "source": {
+        "kind": "agent",
+        "prompt": "For a detail surface, empty means the record is gone. States the fact and offers the way back; invents no plausible record to fill the page."
+      },
+      "revision": 1,
+      "files": {
+        "html": "screens/opportunity-detail-not-found/r1/code.html",
+        "png": "screens/opportunity-detail-not-found/r1/screen.png",
+        "sha256": {
+          "html": "8cacb13ced46043adf71274437073dfc9483c9846efe194c9dc86f8c8a9de754",
+          "png": "5212dc46ae47f729e1449ebd76f19dd043cd66dcd23814d1f0fe25f7e5e316a6"
+        }
+      },
+      "decision": {
+        "state": "pending",
+        "notes": ""
+      },
+      "tokenDriven": true,
+      "staleTokens": false,
+      "capturedTokensHash": "44c95ecdc528ed9990c3d52110ccb711924d3eafe21cd651efec4b018ab31bff",
+      "canvas": {
+        "x": 1560,
+        "y": 1020
+      }
+    },
+    {
+      "id": "scr_58390e82",
+      "slug": "profile-populated",
+      "title": "Profile — populated",
+      "device": "desktop",
+      "width": 1440,
+      "height": 900,
+      "source": {
+        "kind": "agent",
+        "prompt": "The four answers every fit score is computed against, said as such rather than presented as settings."
+      },
+      "revision": 1,
+      "files": {
+        "html": "screens/profile-populated/r1/code.html",
+        "png": "screens/profile-populated/r1/screen.png",
+        "sha256": {
+          "html": "61afcce20f11dc70c8dcb298f37d34c392beed6208d01a4249ed70935ba17d9b",
+          "png": "b57de9ff34f60b411433a2c30dd4989f4826547aff0eb678eaf5a0f3682b6229"
+        }
+      },
+      "decision": {
+        "state": "pending",
+        "notes": ""
+      },
+      "tokenDriven": true,
+      "staleTokens": false,
+      "capturedTokensHash": "44c95ecdc528ed9990c3d52110ccb711924d3eafe21cd651efec4b018ab31bff",
+      "canvas": {
+        "x": 3120,
+        "y": 1020
+      }
+    },
+    {
+      "id": "scr_4ffe7da8",
+      "slug": "profile-empty",
+      "title": "Profile — empty",
+      "device": "desktop",
+      "width": 1440,
+      "height": 900,
+      "source": {
+        "kind": "agent",
+        "prompt": "Blank fields with placeholders that describe the shape of an answer and submit nothing. ART-08: never invented defaults."
+      },
+      "revision": 1,
+      "files": {
+        "html": "screens/profile-empty/r1/code.html",
+        "png": "screens/profile-empty/r1/screen.png",
+        "sha256": {
+          "html": "0973b9f4b2079f09a496f0cf1276cd687ef6c44af6adc5661b96ce14a072e0cc",
+          "png": "b4205b0a250ae1d3327c933f452217ff77c1b561835372113590f09fed1094bd"
+        }
+      },
+      "decision": {
+        "state": "pending",
+        "notes": ""
+      },
+      "tokenDriven": true,
+      "staleTokens": false,
+      "capturedTokensHash": "44c95ecdc528ed9990c3d52110ccb711924d3eafe21cd651efec4b018ab31bff",
+      "canvas": {
+        "x": 4680,
+        "y": 1020
+      }
+    }
+  ],
   "requests": [],
   "events": [
     {
@@ -61,6 +318,87 @@
       "type": "project_initialized",
       "data": {
         "name": "Freelance Dashboard"
+      }
+    },
+    {
+      "seq": 2,
+      "at": "2026-09-05T08:59:30.610Z",
+      "type": "tokens_changed",
+      "data": {
+        "tokensHash": "44c95ecdc528ed9990c3d52110ccb711924d3eafe21cd651efec4b018ab31bff",
+        "previous": "c0951e1a1aa3f4a673ed8cc85a06b79ff7173556982d91545822ccf8e74bf58f"
+      }
+    },
+    {
+      "seq": 3,
+      "at": "2026-09-05T09:00:13.547Z",
+      "type": "screen_added",
+      "data": {
+        "screenId": "scr_7687f65b",
+        "slug": "pipeline-board-populated"
+      }
+    },
+    {
+      "seq": 4,
+      "at": "2026-09-05T09:00:16.425Z",
+      "type": "screen_added",
+      "data": {
+        "screenId": "scr_26fb0890",
+        "slug": "pipeline-board-empty"
+      }
+    },
+    {
+      "seq": 5,
+      "at": "2026-09-05T09:00:18.647Z",
+      "type": "screen_added",
+      "data": {
+        "screenId": "scr_cc2e80b2",
+        "slug": "scout-inbox-populated"
+      }
+    },
+    {
+      "seq": 6,
+      "at": "2026-09-05T09:00:21.089Z",
+      "type": "screen_added",
+      "data": {
+        "screenId": "scr_bdebfd6f",
+        "slug": "scout-inbox-empty"
+      }
+    },
+    {
+      "seq": 7,
+      "at": "2026-09-05T09:00:28.944Z",
+      "type": "screen_added",
+      "data": {
+        "screenId": "scr_a181a085",
+        "slug": "opportunity-detail-populated"
+      }
+    },
+    {
+      "seq": 8,
+      "at": "2026-09-05T09:00:32.818Z",
+      "type": "screen_added",
+      "data": {
+        "screenId": "scr_d2a67403",
+        "slug": "opportunity-detail-not-found"
+      }
+    },
+    {
+      "seq": 9,
+      "at": "2026-09-05T09:00:34.684Z",
+      "type": "screen_added",
+      "data": {
+        "screenId": "scr_58390e82",
+        "slug": "profile-populated"
+      }
+    },
+    {
+      "seq": 10,
+      "at": "2026-09-05T09:00:36.747Z",
+      "type": "screen_added",
+      "data": {
+        "screenId": "scr_4ffe7da8",
+        "slug": "profile-empty"
       }
     }
   ],
@@ -71,9 +409,9 @@
   },
   "approvals": [],
   "provenance": {
-    "DESIGN.md": "b810eee539768e3c0508eb00c3d70cd9c96536e05bd3f62c0d45942ce1751b69",
-    "tokens.css": "4843a47d55c135f3ac6f3d3caaf036d04d47f50b0919d764d125e75938784a7e",
+    "DESIGN.md": "49ecfa926b7b35046c26dc4de05730144f930011521a68fb5258f7e3cceffa1a",
+    "tokens.css": "b747a60ca1d3851ffddec66f7894bac35ae2a8a3f9a7b26e09d2b7accf6dbfa0",
     "tailwind.theme.css": "11a8fbe8f7c3a5b172e0d7ed1f45352281c103e52dbf5cac434fa3f496b7ba97",
-    "preview.html": "ff56961c14dd1b2cccea79fe2a90be2b5ad674bc44a1472cdb9bc3777c2bddc3"
+    "preview.html": "c3ae7cc939206c7e23d7837c31e319679b6b91f7b682736240586ee3325683b8"
   }
 }

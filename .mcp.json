@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "ls-design-studio": {
+      "command": "ls-design-studio",
+      "args": ["mcp", "--project", "blueprints/freelance-dashboard"]
+    }
+  }
+}
