@@ -65,8 +65,26 @@ export function probe(
     const title = /<title>([\s\S]*?)<\/title>/.exec(dom)?.[1] ?? '';
     const decoded = title.replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
     return decoded ? JSON.parse(decoded) : null;
+    /* Callers must not cast this. A probe can return a value that parses but is
+       not the shape expected — a page whose own <title> happens to be valid
+       JSON, or a script that did not run and left the original title in place.
+       `probeArray` below is the checked way to read one. */
   } catch { return null; }
   finally { try { unlinkSync(probePath); } catch { /* best effort */ } }
+}
+
+/**
+ * Read a probe result that must be an array.
+ *
+ * Casting `probe()`'s return to an array was a real crash: when the injected
+ * script did not set the title as expected, `for (const x of result)` threw
+ * `result is not iterable` and took the whole design gate down instead of
+ * reporting that one screen could not be measured. A cast is a claim; this is
+ * the check.
+ */
+function probeArray(browser: string, screen: string, script: string, flags: string[] = []): unknown[] | null {
+  const result = probe(browser, screen, script, flags);
+  return Array.isArray(result) ? result : null;
 }
 
 /** Every screen a surface declares, so a check covers states and not just the happy path. */
@@ -124,7 +142,7 @@ export function checkFocusVisible(
   let checked = 0;
 
   for (const screen of screens) {
-    const result = probe(browser, screen, FOCUS_PROBE) as { tag: string; label: string; visible: boolean }[] | null;
+    const result = probeArray(browser, screen, FOCUS_PROBE) as { tag: string; label: string; visible: boolean }[] | null;
     if (!result) { findings.push(`${screen.split('/').pop()}: probe did not return`); continue; }
     for (const element of result) {
       checked += 1;
@@ -186,10 +204,10 @@ export function checkReducedMotion(
 
   for (const screen of screens) {
     const name = screen.split('/').pop();
-    const normal = probe(browser, screen, MOTION_PROBE) as { tag: string; cls: string; seconds: number }[] | null;
+    const normal = probeArray(browser, screen, MOTION_PROBE) as { tag: string; cls: string; seconds: number }[] | null;
     animatedNormally += normal?.length ?? 0;
 
-    const reduced = probe(browser, screen, MOTION_PROBE, ['--force-prefers-reduced-motion']) as
+    const reduced = probeArray(browser, screen, MOTION_PROBE, ['--force-prefers-reduced-motion']) as
       { tag: string; cls: string; seconds: number }[] | null;
     for (const element of reduced ?? []) {
       findings.push(`${name}: <${element.tag}${element.cls ? ` class="${element.cls}"` : ''}> still runs ${element.seconds}s under reduced motion`);
@@ -260,10 +278,13 @@ export function checkOverflow(
     for (const width of widths) {
       const result = probe(browser, screen, OVERFLOW_PROBE, [`--window-size=${width},900`]) as
         { vw: number; sw: number; past: { tag: string; cls: string; right: number }[] } | null;
-      if (!result) { findings.push(`${name} at ${width}px: probe did not return`); continue; }
+      if (!result || typeof result.sw !== 'number' || typeof result.vw !== 'number') {
+        findings.push(`${name} at ${width}px: probe did not return a measurement`);
+        continue;
+      }
       measured += 1;
       if (result.sw > result.vw) {
-        const worst = result.past[0];
+        const worst = Array.isArray(result.past) ? result.past[0] : undefined;
         findings.push(
           `${name} at ${width}px: scrolls to ${result.sw} in a ${result.vw} viewport`
           + (worst ? ` — <${worst.tag}${worst.cls ? ` class="${worst.cls}"` : ''}> reaches ${worst.right}` : ''),

@@ -197,3 +197,19 @@ test('the shipped screens fit every declared viewport', {
   assert.equal(result.status, 'pass', result.findings.join('\n'));
   assert.match(result.detail, /8 screen\(s\) measured at 360, 768, 1440px/);
 });
+
+test('a probe that returns a non-array is reported, not crashed on', () => {
+  // This was a real crash, not a hypothetical: casting probe() to an array and
+  // iterating it threw "result is not iterable" and took the whole design gate
+  // down instead of reporting that one screen could not be measured. A cast is
+  // a claim; the check is what makes it safe.
+  const dir = surfaceDir({
+    // A screen whose own <title> is valid JSON but not the shape expected.
+    'board.html': '<html><head><title>{"not":"an array"}</title></head><body><button>x</button></body></html>',
+  });
+  const system = loadDesignSystem(DIR);
+
+  const focus = checkFocusVisible(system, dir, [{ id: 'board', states: ['populated'] }], browser ?? '/nonexistent');
+  assert.notEqual(focus.status, 'pass', 'an unreadable probe must never read as a pass');
+  assert.doesNotThrow(() => checkOverflow(system, dir, [{ id: 'board', states: ['populated'] }], browser ?? '/nonexistent'));
+});

@@ -69,6 +69,24 @@ One to add, if it earns a CAL entry: **`design.json` records provenance hashes
 that nothing verifies.** The data was already being written; only the check was
 missing. A hand-edit to `tokens.css` passed every check we had until we read it.
 
+**One coordination hazard, since you are implementing the ingest rewrite.** Our
+build currently ships `../../../tokens.css` — the depth that works from storage
+— as a workaround. If `writeRevision` rewrites the href by computing the depth
+from the source path, it will handle either input correctly and nothing breaks.
+If it rewrites by *assuming* the input is `../tokens.css`, ours will
+double-apply and the link will break again, in the same silent way.
+
+Either way the workaround is temporary: once your fix lands we drop the rewrite
+and send the href an author would actually write. We have a conformance check
+(`aose design-verify`) that resolves a stored screen's tokens link against the
+running studio and fails loudly if it 404s, so we will find out immediately
+rather than by looking at a canvas. Say the word when it lands and we will
+verify from our side — that gives you an independent confirmation the fix works
+against a real consumer.
+
+We are not touching your tree. You have uncommitted work in it and you have
+already claimed this fix; two agents in one repo is how changes get lost.
+
 Full write-up, with reproductions and the things that worked well:
 `docs/studio-feedback.md` in
 github.com/verbalogicproject-creator/kg-rag-development-design-harness
