@@ -336,6 +336,69 @@ export function checkTokenResolution(
   };
 }
 
+/** A surface as the spec declares it, once compile has normalised bare strings. */
+export interface SurfaceDecl { id: string; density?: string; states?: string[] }
+
+/** `<surface>.html` is the populated state; `<surface>-<state>.html` is any other. */
+export function screenFor(dir: string, surface: string, state: string): string | null {
+  const name = state === 'populated' ? `${surface}.html` : `${surface}-${state}.html`;
+  const path = join(dir, 'design', 'screens', name);
+  return existsSync(path) ? path : null;
+}
+
+/**
+ * DSC-03 — a surface with no data renders a real empty state.
+ *
+ * DREQ-03 is gate-level, so this fails rather than warns when a surface that
+ * declares `empty` has no empty screen: the requirement cannot be demonstrated,
+ * and a requirement nobody can demonstrate is not satisfied. It also reads the
+ * screens it does find, because a file named `-empty` proves nothing on its own
+ * — the rule is that it names a next action and ships no placeholder rows.
+ */
+export function checkStates(
+  system: DesignSystem['design_system'],
+  dir: string,
+  surfaces: SurfaceDecl[],
+): CheckResult {
+  const scenario = system.verification.scenarios.find((s) => s.id === 'DSC-03');
+  const findings: string[] = [];
+  let covered = 0;
+  let declared = 0;
+
+  for (const surface of surfaces) {
+    for (const state of surface.states ?? system.required_states) {
+      declared += 1;
+      const path = screenFor(dir, surface.id, state);
+      if (path) covered += 1;
+      else if (state === 'empty') {
+        findings.push(`${surface.id}: declares the empty state but no screen proves it (expected design/screens/${surface.id}-empty.html)`);
+      }
+    }
+
+    const emptyPath = screenFor(dir, surface.id, 'empty');
+    if (!emptyPath) continue;
+    const html = readFileSync(emptyPath, 'utf8');
+
+    // A next action must exist and be reachable, not merely described.
+    if (!/<(?:button|textarea|input|select)\b/i.test(html)) {
+      findings.push(`${surface.id}: the empty state describes no reachable action — REQ-04 asks it to name the next action, not narrate the absence`);
+    }
+    // Placeholder rows are the failure ART-08 names: plausible-looking invention.
+    const rows = (html.match(/class="(?:card|row-item)\b/g) ?? []).length;
+    if (rows > 0) {
+      findings.push(`${surface.id}: the empty state ships ${rows} placeholder row(s); an empty surface renders no rows at all`);
+    }
+  }
+
+  return {
+    id: 'DSC-03',
+    test_name: scenario?.test_name ?? 'every surface renders a real empty state',
+    status: surfaces.length === 0 ? 'vacuous' : findings.length ? 'fail' : 'pass',
+    detail: `${covered}/${declared} surface-states have a screen; ${surfaces.length} surface(s) declare an empty state`,
+    findings,
+  };
+}
+
 /* ------------------------------------------------------------------ */
 /* The gate                                                            */
 /* ------------------------------------------------------------------ */
@@ -354,6 +417,7 @@ export function loadDesignSystem(dir: string, path = 'design.system.yaml'): Desi
  */
 export function designCheck(
   dir: string,
+  surfaces: SurfaceDecl[] = [],
   /* The studio's token-driven screens are real code and are checked as such,
      alongside wherever a built surface lands. Checking the reference screens is
      what keeps DSC-01 from being vacuous until the app exists. */
@@ -369,6 +433,7 @@ export function designCheck(
     checkTokenResolution(system, dir, searchRoots),
     checkContrast(system, tokens),
     checkPaletteCoverage(system, tokens),
+    checkStates(system, dir, surfaces),
   ];
 
   const contrast = checks.find((c) => c.id === 'DSC-02')!;

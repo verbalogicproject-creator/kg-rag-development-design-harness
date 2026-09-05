@@ -13,7 +13,8 @@ import YAML from 'yaml';
 import { Harness } from './harness.ts';
 import { lintDir } from './lint.ts';
 import { formatConverge } from './converge.ts';
-import { designCheck, formatReport } from './designcheck.ts';
+import { designCheck, formatReport, loadDesignSystem } from './designcheck.ts';
+import { checkFocusVisible, checkReducedMotion } from './designbrowser.ts';
 import { ADAPTERS } from './adapters/index.ts';
 
 const USAGE = `aose — Agent-Oriented Software Engineering harness v2
@@ -174,7 +175,24 @@ try {
       // The design plane's execution_gate. Writes its report beside the
       // contract so converge can read evidence rather than a claim.
       const dir = harness.dir(slug);
-      const report = designCheck(dir);
+      // Surfaces come from the spec that binds the contract, so the gate checks
+      // the states the domain actually declared rather than a default guess.
+      const report = designCheck(dir, harness.surfaces(slug).flatMap((surface) => {
+        const spec = harness.artifacts(slug).specs?.[surface.domain];
+        return (spec?.design?.surfaces ?? []).map((entry: unknown) =>
+          typeof entry === 'string' ? { id: entry } : entry as { id: string; states?: string[] });
+      }));
+      // The browser checks run alongside the pure ones and fold into the same
+      // report, so converge reads one artifact rather than two.
+      const system = loadDesignSystem(dir);
+      const surfaces = harness.surfaces(slug).flatMap((surface) => {
+        const spec = harness.artifacts(slug).specs?.[surface.domain];
+        return (spec?.design?.surfaces ?? []).map((entry: unknown) =>
+          typeof entry === 'string' ? { id: entry } : entry as { id: string; states?: string[] });
+      });
+      report.checks.push(checkFocusVisible(system, dir, surfaces), checkReducedMotion(system, dir, surfaces));
+      report.ok = report.checks.every((check) => check.status !== 'fail');
+
       const out = join(dir, 'design', '__checks__');
       mkdirSync(out, { recursive: true });
       writeFileSync(join(out, 'tokens.report.json'), `${JSON.stringify(report, null, 2)}\n`);

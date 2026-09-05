@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scout inbox — empty</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="screen.css">
+</head>
+<body>
+<!--
+  The empty inbox reveals a dependency rather than hiding it: scoring is
+  computed against the profile, so with no profile a scout run can fetch but
+  cannot rank. Saying so here is more useful than letting the first run return
+  unranked results the user cannot interpret.
+-->
+<div class="shell">
+  <header class="topbar">
+    <h1 class="wordmark">Pipeline</h1>
+    <nav class="nav" aria-label="Surfaces">
+      <a href="pipeline-board.html">Board</a>
+      <a href="scout-inbox.html" aria-current="page">Inbox</a>
+      <a href="profile.html">Profile</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="page-head">
+      <h2>Scout inbox</h2>
+      <p class="tally">No run yet</p>
+    </div>
+
+    <div class="empty">
+      <p>A scout run reads the four cleared feeds and ranks what it finds against your profile. Nothing has run yet.</p>
+      <div class="row">
+        <button type="button" class="action">Run scout</button>
+        <span class="or">reads</span>
+        <span class="or">remotive · remoteok · weworkremotely · hn/algolia</span>
+      </div>
+    </div>
+
+    <div class="sources" aria-label="Scoring prerequisite">
+      <div><span class="bad">needed</span><span>Set a minimum rate and your skills on Profile, or listings arrive unranked.</span></div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

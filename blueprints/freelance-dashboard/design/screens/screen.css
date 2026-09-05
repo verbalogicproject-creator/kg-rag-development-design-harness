@@ -426,3 +426,35 @@ main { padding: var(--ls-space-md); flex: 1; }
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* ── motion ────────────────────────────────────────────────────────── */
+
+/* One motivated transition, not decoration (AD-07). Precise-technical ties
+   motion to system state: these surfaces respond on hover and focus so a
+   pointer target confirms itself, and nothing else moves. Durations are the
+   contract's declared steps — the public design.md format has no motion field,
+   so they cannot be custom properties. */
+.action,
+.link,
+.card,
+.row-item,
+.nav a {
+  transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1),
+              border-color 120ms cubic-bezier(0.2, 0, 0, 1),
+              color 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.card:hover,
+.row-item:hover { border-color: var(--ls-color-border-strong); }
+.nav a:hover { color: var(--ls-color-content); }
+.action.quiet:hover { background: var(--ls-color-surface-raised); }
+
+@media (prefers-reduced-motion: reduce) {
+  .action,
+  .link,
+  .card,
+  .row-item,
+  .nav a {
+    transition-duration: 0ms;
+  }
+}
