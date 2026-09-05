@@ -37,6 +37,8 @@ contracts:
     kind: query
     precondition: text is a string.
     postcondition: Returns the hourly rate with its currency when one is stated, and null when none is stated. Never returns a rate the text does not contain.
+    totality: >-
+      Absence is already in the return type. `null` means the text stated no rate, which is the answer for that input rather than an error about it.
   "parseBudget(text: string): Result<{ budget: Money; wasRange: boolean }, ParseError>":
     kind: transition
     precondition: text is a string.
@@ -46,6 +48,8 @@ contracts:
     kind: query
     precondition: vocabulary is a list of known skill terms, possibly empty.
     postcondition: Returns the vocabulary terms that occur in the text, deduplicated and lowercased, in the order they first appear. Returns an empty array rather than guessing when nothing matches.
+    totality: >-
+      Intersection of the text with a caller-supplied vocabulary. No match is an empty array, which is the correct answer to "which of these appear".
 verification:
   test_suite: test/parse.test.js
   scenarios:

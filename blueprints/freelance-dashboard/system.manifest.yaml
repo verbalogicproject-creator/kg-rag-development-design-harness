@@ -66,3 +66,25 @@ decisions:
     rationale: A human approves the visual direction on real screens once, and the builder implements what was approved instead of relitigating it, which is what keeps a token system from drifting.
     alternatives: [Style during implementation, Apply a component library default theme]
     sources: []
+  - id: DEC-06
+    statement: The store selects a persistence backend from its host and reaches the
+      node-only one through a dynamic import, so one module serves both the CLI and
+      the browser surface.
+    rationale: >-
+      ui/client is browser-targeted and depends on infra/store. While the store
+      declared "esm-only, node24" the shipped bundle opened with
+      `import{DatabaseSync}from"node:sqlite"` and no browser could load it — and
+      neither gate could see it, because a bundler externalises specifiers it does
+      not recognise and the unit tests run in node, where that module is real. A
+      static import is resolved by a bundler whether or not it ever executes, so the
+      host check has to guard an `import()`, not an `if`. Keeping one module behind
+      one contract also keeps ART-05 honest: every backend here is local, and the
+      surface cannot quietly acquire a hosted one.
+    alternatives:
+      - Keep the store node-only and give ui/client its own browser store — two
+        implementations of one contract, drifting apart, with migrations to write twice
+      - Put a port in ui/client and inject the node store — correct, but it moves the
+        host decision into the surface and leaves the browser case unimplemented
+      - Persist nothing in the browser and treat the CLI as the only real client —
+        contradicts the premise that the dashboard is the product
+    sources: []

@@ -313,3 +313,39 @@ test('a browser surface may not depend on a node-only module', () => {
   // No declaration, no claim.
   assert.equal(runtimeConflict(browser, runtimeEnvelope('mystery')), null);
 });
+
+/* ---- LINT-13 asks a question the blueprint can now answer ---- */
+
+test('a recorded totality resolves the bare-return warning', () => {
+  /* The rule used to say "confirm it cannot fail" with nowhere to record the
+   * confirmation, so it repeated on every run forever — fifteen times on the
+   * dashboard — and a warning nobody can resolve teaches people to read past
+   * warnings, which is the worst thing one can do. */
+  const query = (totality?: string) => spec({
+    contracts: { 'peek(n: number): number': { kind: 'query', precondition: 'p', postcondition: 'q', errors: [], ...(totality ? { totality } : {}) } },
+  });
+
+  assert.ok(ids(lint(base({ specs: { 'core/engine': query() } }))).warnings.includes('LINT-13'),
+    'unanswered still warns');
+
+  const answered = lint(base({ specs: { 'core/engine': query(
+    'Membership in a fixed set of a closed union. Every input is either in it or not.') } }));
+  assert.equal(ids(answered).warnings.includes('LINT-13'), false, 'a recorded reason resolves it');
+
+  // A field that exists but says nothing is not an answer — otherwise the
+  // mechanism becomes a way to silence the rule rather than to satisfy it.
+  const waved = lint(base({ specs: { 'core/engine': query('it is total') } }));
+  const found = waved.warnings.find((f) => f.id === 'LINT-13');
+  assert.ok(found, 'a stub justification still warns');
+  assert.match(found!.message, /does not say what makes it total/);
+});
+
+test('totality does not excuse a transition from returning a Result', () => {
+  // LINT-12 is an error, not a warning, and this must not become a way round it.
+  const transition = spec({
+    contracts: { 'step(n: number): number': { kind: 'transition', precondition: 'p', postcondition: 'q', errors: [],
+      totality: 'This cannot fail because the caller checked everything already.' } },
+  });
+  assert.ok(ids(lint(base({ specs: { 'core/engine': transition } }))).errors.includes('LINT-12'),
+    'a transition must still return a Result');
+});

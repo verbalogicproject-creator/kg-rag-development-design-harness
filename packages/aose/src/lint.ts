@@ -471,7 +471,17 @@ export function lint(input: LintInput): LintResult {
         findings.push(err('LINT-12', where, `Transition contract "${parsed.name}" returns bare "${parsed.returns}". A state transition must return a discriminated result (Result<T, E>, an { ok: true } | { ok: false } union, or a T | Error union) so failures are values, not throws. Named aliases are resolved against this spec\u0027s own types block.`));
       }
       if (contract.kind === 'query' && returnClass === 'bare') {
-        findings.push(warn('LINT-13', where, `Query contract "${parsed.name}" returns bare "${parsed.returns}". Acceptable for a total function; confirm it cannot fail.`));
+        /* A bare return is fine for a total function, and the rule used to ask
+           the author to "confirm it cannot fail" with nowhere to record the
+           confirmation. So it repeated forever and taught people to read past
+           it, which is the worst thing a warning can do. `totality` is where
+           the answer goes; a short or empty one is not an answer. */
+        const stated = (contract.totality ?? '').trim();
+        if (!stated) {
+          findings.push(warn('LINT-13', where, `Query contract "${parsed.name}" returns bare "${parsed.returns}". Acceptable for a total function — say why under \`totality:\` on the contract, or return a discriminated result.`));
+        } else if (stated.length < 20) {
+          findings.push(warn('LINT-13', where, `Query contract "${parsed.name}" declares totality as "${stated}", which does not say what makes it total. Name the property — a closed input domain, a total mapping, a defaulted lookup.`));
+        }
       }
 
       /* declared error codes must exist in the types block */

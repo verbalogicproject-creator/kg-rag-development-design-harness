@@ -77,6 +77,8 @@ contracts:
     kind: query
     precondition: The opportunity has a url or a title.
     postcondition: Returns a stable key such that two listings of the same posting from different sources collide, and different postings do not.
+    totality: >-
+      A pure function of fields the Opportunity type requires, so there is no absent input to fail on. It hashes rather than looks up, so it cannot miss.
 verification:
   test_suite: test/feeds.test.js
   scenarios:

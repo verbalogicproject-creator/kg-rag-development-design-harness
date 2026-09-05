@@ -184,6 +184,11 @@ export const ContractSchema = z.object({
   postcondition: nonEmpty,
   errors: z.array(nonEmpty).default([]),
   algorithm: z.string().optional(),
+  /* Why a query returning a bare type cannot fail. LINT-13 asks an author to
+     "confirm it cannot fail" and there was nowhere to put the answer, so the
+     warning could only ever be re-read, never resolved. Recording the reason
+     turns it from a nag into a claim someone can disagree with. */
+  totality: z.string().optional(),
 });
 
 export const ScenarioSchema = z.object({

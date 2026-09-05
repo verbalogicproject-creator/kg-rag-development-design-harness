@@ -45,10 +45,14 @@ contracts:
     precondition: now is an ISO 8601 timestamp and profile arrays are defined, possibly empty.
     postcondition: Returns a score in 0..100 whose reasons' deltas sum to the score, or a zero score with excluded true and a single exclusion reason. The same inputs always produce the same score.
     algorithm: weighted sum of skill overlap, rate margin above the profile minimum, keyword hits and posting recency, clamped to 0..100, short-circuited to zero on any exclusion match
+    totality: >-
+      Every scoring rule contributes a delta or none, and the sum is clamped into 0..100, so no input produces an undefined score. An exclusion short-circuits to a zero score, which is a value rather than an absence.
   "rankOpportunities(opportunities: readonly Opportunity[], profile: Profile, now: string): readonly { opportunity: Opportunity; score: Score }[]":
     kind: query
     precondition: Every opportunity is well formed and now is an ISO 8601 timestamp.
     postcondition: Returns every input paired with its score, ordered by score descending then by postedAt descending. The input array is not mutated.
+    totality: >-
+      A total map over the input followed by a total order on (score, postedAt). An empty input yields an empty array, which is an answer and not a failure.
 verification:
   test_suite: test/match.test.js
   scenarios:

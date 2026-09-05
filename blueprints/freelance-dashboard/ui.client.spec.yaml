@@ -77,34 +77,50 @@ contracts:
     kind: query
     precondition: stages lists the pipeline stages in display order.
     postcondition: Returns one column per stage in the given order, each holding only the opportunities at that stage, with every input opportunity appearing in exactly one column. The input array is not mutated.
+    totality: >-
+      One column per requested stage, and every opportunity lands in exactly one of them or none. A stage with no opportunities is an empty column, which is what the empty state renders from.
   "toInboxRows(scored: readonly { opportunity: Opportunity; score: Score }[], seenIds: readonly string[]): readonly InboxRow[]":
     kind: query
     precondition: scored is the output of rankOpportunities and seenIds lists opportunities already reviewed.
     postcondition: Returns the rows in the order given, marking isNew true exactly for opportunities whose id is absent from seenIds.
+    totality: >-
+      A total map over the input; membership in seenIds is a boolean for every id. Order is preserved rather than computed, so there is nothing to resolve.
   "emptyStateFor(surface: Surface): EmptyState":
     kind: query
     precondition: surface is one of the declared surfaces.
     postcondition: Returns a headline and a concrete next action for that surface. Never returns sample or placeholder content.
+    totality: >-
+      Surface is a closed union and the table covers every member. Adding a surface without its entry fails to typecheck, so the mapping cannot silently become partial.
   "PipelineBoard(props: DashboardProps): JSX.Element":
     kind: query
     precondition: props.opportunities is defined, possibly empty.
     postcondition: Renders one region per stage from toBoardColumns, renders the board's empty state when there are no opportunities, and calls onAdvance with the opportunity id and target stage when a card is moved.
+    totality: >-
+      A render is total by construction: every branch — populated, empty, loading, error — returns an element, and failure states are rendered rather than thrown. ART-02 keeps errors as values, so a component receives one and draws it.
   "ScoutInbox(props: DashboardProps): JSX.Element":
     kind: query
     precondition: props.profile may be null, in which case scoring is not shown.
     postcondition: Renders scored listings highest first with each score's reasons visible, shows per-source outcomes after a run, and calls onScout when a run is requested.
+    totality: >-
+      A render is total by construction: every branch returns an element, and per-source failures arrive as values to display rather than as throws.
   "OpportunityDetail(props: { opportunity: Opportunity; score: Score | null }): JSX.Element":
     kind: query
     precondition: opportunity is a stored opportunity.
     postcondition: Renders the opportunity's fields, its stage history in order, and its score reasons when a score is supplied. Renders a field's absence explicitly rather than substituting a value.
+    totality: >-
+      A render is total by construction. A null score and an absent field are both rendered explicitly, so there is no input for which there is nothing to draw.
   "ProfileForm(props: { profile: Profile | null; onSave: (profile: Profile) => void }): JSX.Element":
     kind: query
     precondition: profile may be null when none has been saved.
     postcondition: Renders the profile's skills, minimum rate, keywords and exclusions for editing, and calls onSave with the edited profile. With a null profile it renders empty fields, never invented defaults.
+    totality: >-
+      A render is total by construction. A null profile renders the empty form, which is the branch that would otherwise be an absence.
   "App(props: DashboardProps): JSX.Element":
     kind: query
     precondition: The store has been loaded.
     postcondition: Renders the four surfaces behind navigation, each reachable, with no navigation target left unresolved.
+    totality: >-
+      A render is total by construction, and every navigation target resolves to one of the four surfaces. There is no route that leaves nothing rendered.
 external_sources: []
 verification:
   test_suite: src/__tests__/client.test.tsx
