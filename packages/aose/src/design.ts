@@ -11,7 +11,7 @@
  * package is published, it falls back to running the repository directly.
  */
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { containedPath, isContained } from './integrity.ts';
 
@@ -156,6 +156,38 @@ export function handoffSeed(blueprintDir: string, handoffPath = 'design/handoff'
     const from = join(root, file);
     if (existsSync(from)) seed.push({ path: join('design', file), from });
   }
+
+  /* The approved screens themselves.
+   *
+   * These were missing, and their absence quietly broke the property the design
+   * plane exists for: "a token-driven approved screen and the shipped interface
+   * are two renders of one file, so there is no drift to compare by eye". That
+   * only holds if the worker HAS the approved screen. Without it the worker
+   * builds from prose and tokens, and the comparison becomes exactly the
+   * eyeballing the handoff was meant to remove.
+   *
+   * The markup only. A PNG is bulk a text worker cannot read, and the HTML is
+   * the artifact a person actually approved. */
+  const screensDir = join(root, 'screens');
+  if (existsSync(screensDir)) {
+    for (const entry of readdirSync(screensDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const from = join(screensDir, entry.name, 'code.html');
+      if (existsSync(from)) seed.push({ path: join('design', 'screens', entry.name, 'code.html'), from });
+    }
+  }
+
+  /* Quarantined fixture values, so the worker can tell invented content from
+   * real content. ART-08 forbids shipping these; a worker that has never seen
+   * them cannot honour a rule about them. */
+  const fixturesDir = join(root, 'fixtures');
+  if (existsSync(fixturesDir)) {
+    for (const name of readdirSync(fixturesDir)) {
+      if (!name.endsWith('.json')) continue;
+      seed.push({ path: join('design', 'fixtures', name), from: join(fixturesDir, name) });
+    }
+  }
+
   return seed;
 }
 

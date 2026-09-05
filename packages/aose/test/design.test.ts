@@ -343,3 +343,34 @@ test('the approval digest covers the design directory too', () => {
   assert.notEqual(approvalDigest(root, [], join(root, 'design')).value, before,
     'changing the design contract must invalidate an approval that covered it');
 });
+
+test('the handoff seeds the approved screens, not only the tokens', () => {
+  // Their absence quietly broke the property the design plane exists for: an
+  // approved screen and the shipped interface being two renders of one file.
+  // Without the screen, a worker builds from prose and the comparison becomes
+  // exactly the eyeballing the handoff was meant to remove.
+  const root = dir();
+  const handoff = join(root, 'design', 'handoff');
+  mkdirSync(join(handoff, 'screens', 'board'), { recursive: true });
+  mkdirSync(join(handoff, 'fixtures'), { recursive: true });
+  writeFileSync(join(handoff, 'DESIGN.md'), '# contract');
+  writeFileSync(join(handoff, 'tokens.css'), ':root{}');
+  writeFileSync(join(handoff, 'screens', 'board', 'code.html'), '<html></html>');
+  writeFileSync(join(handoff, 'screens', 'board', 'screen.png'), 'PNG');
+  writeFileSync(join(handoff, 'fixtures', 'board.json'), '{"title":"Sample"}');
+
+  const seed = handoffSeed(root, 'design/handoff').map((entry) => entry.path);
+  assert.ok(seed.includes(join('design', 'screens', 'board', 'code.html')),
+    'the approved markup is the artifact a person actually approved');
+  assert.ok(seed.includes(join('design', 'fixtures', 'board.json')),
+    'ART-08 forbids shipping quarantined values; a worker that never sees them cannot honour that');
+  assert.equal(seed.some((p) => p.endsWith('.png')), false,
+    'a PNG is bulk a text worker cannot read');
+});
+
+test('handoff seeding still refuses a path that escapes the project', () => {
+  // The screens walk must not become a way around containment.
+  const root = dir();
+  mkdirSync(join(root, 'design', 'handoff'), { recursive: true });
+  assert.throws(() => handoffSeed(root, '../../elsewhere/handoff'), /outside/);
+});
