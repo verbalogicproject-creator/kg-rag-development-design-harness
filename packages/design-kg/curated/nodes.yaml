@@ -1,0 +1,508 @@
+# Curated nodes — batch one.
+#
+# Every node carries an evidence.source naming the file it was read from. No
+# source, no node. This is the judgement layer: deciding that two things are
+# rivals rather than variants, or that a rule is a threshold rather than a ban,
+# cannot be extracted mechanically — so it is declared here, in the open.
+#
+# The differentiation test, applied to every entry: if you cannot say what this
+# node distinguishes across at least five real cases, it is noise and does not
+# belong. Nodes that only restate a category were dropped rather than padded.
+#
+# Batch one covers the five highest-value sources in the L.S.Design corpus:
+#   direction-families.md · natural-color-and-humanization.md
+#   core-principles.md · contract-schema.md · interface-copy.md
+
+schema: design-kg/curated-nodes/1.0
+
+# ── DIRECTION FAMILIES ────────────────────────────────────────────────
+# The canonical five. A contract chooses from these; it never invents one.
+# This is the node kind whose absence caused the failure that started this
+# work: four families were invented while these five sat one link away.
+
+direction_family:
+  - id: dir_editorial_restraint
+    name: Editorial restraint
+    summary: >-
+      Type-led hierarchy, deliberate measure, strong cropping, quiet surfaces,
+      disciplined alignment. Distinction comes from proportion and pacing.
+    signature: proportion and pacing
+    evidence:
+      source: ls-design-art-direction/references/direction-families.md — "Editorial restraint"
+
+  - id: dir_precise_technical
+    name: Precise technical
+    summary: >-
+      Structured information, calibrated density, exact labels, diagrams,
+      controlled contrast, motion tied to system state.
+    signature: calibrated density
+    caution: Avoid decorative terminal clichés unless authentic to the product.
+    evidence:
+      source: ls-design-art-direction/references/direction-families.md — "Precise technical"
+
+  - id: dir_tactile_human
+    name: Tactile human
+    summary: >-
+      Material imagery, warm colour relationships, irregular but controlled
+      composition, generous reading comfort, motion with physical continuity.
+    signature: material warmth
+    evidence:
+      source: ls-design-art-direction/references/direction-families.md — "Tactile human"
+
+  - id: dir_cinematic_spatial
+    name: Cinematic spatial
+    summary: >-
+      Depth, sequence, framing, light and atmospheric media create focus.
+    signature: depth and sequence
+    caution: Preserve immediate comprehension, DOM content, and a lightweight fallback.
+    evidence:
+      source: ls-design-art-direction/references/direction-families.md — "Cinematic spatial"
+
+  - id: dir_cultural_expressive
+    name: Cultural expressive
+    summary: >-
+      Distinctive typography, image language, rhythm and symbols grounded in a
+      real cultural or brand context.
+    signature: grounded cultural rhythm
+    caution: Avoid superficial borrowing.
+    evidence:
+      source: ls-design-art-direction/references/direction-families.md — "Cultural expressive"
+
+# ── CONDITIONS ────────────────────────────────────────────────────────
+# What a use case looks like. A direction `suits_use_case` a condition; an
+# interview answer produces the same edge with provenance `chosen` rather
+# than `canon`, which is how the graph learns from real decisions.
+
+condition:
+  - id: cond_audience_solo_operator
+    name: A person working alone
+    summary: No handoffs, no shared conventions to inherit, no team style to match.
+    evidence: { source: derived from idea.yaml audience fields; first instance freelance-dashboard }
+
+  - id: cond_content_tabular_numeric
+    name: Content is mostly numbers to compare
+    summary: Rates, scores, counts — where alignment carries meaning and scanning is the task.
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — monospace condition }
+
+  - id: cond_content_long_prose
+    name: Content is continuous reading
+    summary: Measure, leading and rhythm dominate; density is a cost rather than a benefit.
+    evidence: { source: ls-design/references/core-principles.md — Typography, measure guidance }
+
+  - id: cond_platform_offline_local
+    name: Runs locally, offline
+    summary: No hosted backend, no telemetry; every value on screen came from this machine.
+    evidence: { source: derived from idea.yaml constraints; first instance freelance-dashboard }
+
+  - id: cond_locale_rtl
+    name: Ships a right-to-left locale
+    summary: Logical properties become mandatory and mirroring becomes a per-component decision.
+    evidence: { source: ls-design/references/rtl-foundations.md — referenced by 11 skills }
+
+  - id: cond_volume_sparse_then_dense
+    name: Nearly empty at first, crowded later
+    summary: >-
+      The first week has no data and the third month has too much. One layout
+      must hold both, or the empty case becomes an afterthought.
+    evidence: { source: derived from idea.yaml REQ empty-state requirements }
+
+  - id: cond_brand_established
+    name: An established brand truth exists
+    summary: Assets, palette or typography already decided elsewhere and outranking defaults.
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — "Established brand truth wins outright" }
+
+# ── HUMANIZATION CHECKS ───────────────────────────────────────────────
+# The positive half. These are the operational definition of "professional
+# rather than generic", and the reason that phrase can be checked at all.
+
+check:
+  - id: chk_traceable_premise
+    name: Traceable premise
+    summary: Important choices trace to the audience, product, content, brand or environment.
+    level: review
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — Humanization gate }
+
+  - id: chk_motif_restraint
+    name: Motif restraint
+    summary: One principal signature and one quieter counterpoint; repetition develops rather than stamps.
+    level: review
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — Humanization gate }
+
+  - id: chk_content_led_geometry
+    name: Content-led geometry
+    summary: Section structure changes because the material changes, not because a template alternates.
+    level: review
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — Humanization gate }
+
+  - id: chk_specific_language
+    name: Specific language
+    summary: Headings and labels carry product meaning; generic poetic phrases do not replace evidence.
+    level: review
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — Humanization gate }
+
+  - id: chk_rhythm
+    name: Rhythm
+    summary: Dense and open passages, alignment and offset, deliberate pacing rather than constant spectacle.
+    level: review
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — Humanization gate }
+
+  - id: chk_ordinary_state_quality
+    name: Ordinary-state quality
+    summary: >-
+      The direction still works in navigation, specifications, forms, errors,
+      loading and long content — not only in the hero. The single sharpest
+      separator between professional and generic output.
+    level: gate
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — Humanization gate }
+
+  - id: chk_contrast_measured
+    name: Contrast measured, not assumed
+    summary: Every foreground/background pair checked at 4.5:1 body, 3:1 large and interface, in both modes.
+    level: gate
+    evidence: { source: ls-design-contract/references/contract-schema.md — "Contrast is verified, not assumed" }
+
+# ── PRIMITIVES ────────────────────────────────────────────────────────
+# The parts a contract is assembled from.
+
+primitive:
+  - id: prim_role_border_vs_border_strong
+    name: Two border roles, deliberately different
+    summary: >-
+      `border` is a decorative hairline between surfaces and is deliberately
+      below 3:1 — a divider meeting 3:1 reads as a heavy rule. `border-strong`
+      bounds an interactive control, where WCAG 1.4.11 applies, and is verified
+      at 3:1.
+    kind: colour-role
+    evidence: { source: ls-design-contract/assets DESIGN template — Colors section }
+
+  - id: prim_semantic_roles_not_names
+    name: Token names are roles, not colours
+    summary: "`primary` and `danger` survive a rebrand; `green` and `red` do not."
+    kind: colour-role
+    evidence: { source: ls-design-contract/references/contract-schema.md — Rules for the frontmatter }
+
+  - id: prim_dark_by_prefix
+    name: Dark mode as a prefixed twin
+    summary: >-
+      Dark values live in the same flat colours map under a `dark-` prefix; a
+      token with no twin inherits its light value. Keeps the document inside the
+      public format, which has no nested light/dark structure.
+    kind: colour-role
+    evidence: { source: ls-design-contract/references/contract-schema.md — Rules for the frontmatter }
+
+  - id: prim_type_roles_not_sizes
+    name: Typography roles, not sizes
+    summary: >-
+      Name a role — display, h1..h3, body, body-small, caption, label, mono —
+      and give it family, size, weight, leading and tracking. Roles map to
+      elements; raw sizes do not.
+    kind: type
+    evidence: { source: ls-design-contract/references/contract-schema.md — Rules for the frontmatter }
+
+  - id: prim_measure_60_72
+    name: Measure of 60 to 72 characters
+    summary: >-
+      Continuous body text reads best under about 80 characters a line; a serif
+      tolerates slightly longer and wants slightly more leading than a sans at
+      the same size. A starting target to tune, not a fixed value.
+    kind: type
+    evidence: { source: ls-design/references/core-principles.md — Typography }
+
+  - id: prim_mono_for_numerics
+    name: Monospace where alignment carries meaning
+    summary: Correct for genuinely tabular or numeric content. Costume anywhere else.
+    kind: type
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — three motifs }
+
+  - id: prim_accent_has_one_job
+    name: The accent has a limited job
+    summary: >-
+      Choose an accent family and give it one job — a primary action, a selected
+      state, a focus indicator may share a relationship without becoming
+      visually identical.
+    kind: colour-role
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — Build colour from evidence }
+
+  - id: prim_hierarchy_before_containers
+    name: Hierarchy before containers
+    summary: >-
+      Use scale, position, contrast and spacing before borders, shadows or
+      labels. Containers express grouping, interaction or material — they do not
+      compensate for weak composition.
+    kind: layout
+    evidence: { source: ls-design/references/core-principles.md — Hierarchy }
+
+  - id: prim_recompose_dont_shrink
+    name: Recompose rather than shrink
+    summary: >-
+      Design for content pressure, not device labels. Recompose when the
+      hierarchy demands it instead of scaling a desktop layout down.
+    kind: layout
+    evidence: { source: ls-design/references/core-principles.md — Responsive behavior }
+
+  - id: prim_effects_are_materials
+    name: Effects are materials
+    summary: >-
+      Glass, grain, blur, gradient, glow and deep shadow imply physical
+      properties. Glow implies an emitted light source; use it where one is
+      credible.
+    kind: material
+    evidence: { source: ls-design/references/core-principles.md — Color and materials }
+
+  - id: prim_motion_communicates_state
+    name: Motion communicates state
+    summary: >-
+      Motion must express state, continuity, hierarchy or causality. Respect
+      reduced-motion, keep essential actions immediate, prevent layout shift.
+    kind: motion
+    evidence: { source: ls-design/references/core-principles.md — Motion }
+
+  - id: prim_one_vocabulary
+    name: One vocabulary across the product
+    summary: >-
+      A concept called one thing in navigation is called the same thing in a
+      heading, a button, a confirmation and an error. An inconsistent name is a
+      broken sign.
+    kind: copy
+    evidence: { source: ls-design/references/interface-copy.md — Name things as the user understands them }
+
+  - id: prim_action_says_what_happens
+    name: An action says what happens
+    summary: "`Save changes`, not `Submit`. Active voice, and the verb survives into the confirmation."
+    kind: copy
+    evidence: { source: ls-design/references/interface-copy.md — Actions }
+
+  - id: prim_error_states_next_step
+    name: An error states what happened and what to do
+    summary: >-
+      In the interface's voice, attached to the thing that failed. It does not
+      apologise, does not blame, and is never vague about which thing failed.
+    kind: copy
+    evidence: { source: ls-design/references/interface-copy.md — Failure and emptiness }
+
+  - id: prim_empty_screen_invites_action
+    name: An empty screen is an invitation to act
+    summary: >-
+      Say what will appear here and give the action that puts something in it.
+      An empty screen saying only "No results" wastes the moment the person is
+      most willing to be directed.
+    kind: copy
+    evidence: { source: ls-design/references/interface-copy.md — Failure and emptiness }
+
+  - id: prim_content_provenance
+    name: Content carries provenance
+    summary: >-
+      A field with no real source is left out of the build. Quotations,
+      statistics, awards and customer names are never generated.
+    kind: content
+    evidence: { source: ls-design-contract/references/contract-schema.md — Content schemas }
+
+# ── VALUES ────────────────────────────────────────────────────────────
+# Specific literals the corpus flags. These make the convergence check
+# mechanical rather than impressionistic.
+
+value:
+  - id: val_ground_f4f1ea
+    name: "#f4f1ea"
+    kind: warm-off-white-ground
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — The named bundle }
+  - id: val_ground_f5f1ea
+    name: "#f5f1ea"
+    kind: warm-off-white-ground
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — The named bundle }
+  - id: val_ground_f7f5f1
+    name: "#f7f5f1"
+    kind: warm-off-white-ground
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — The named bundle }
+  - id: val_ground_fbf8f1
+    name: "#fbf8f1"
+    kind: warm-off-white-ground
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — The named bundle }
+  - id: val_accent_d97757
+    name: "#d97757"
+    kind: clay-brass-accent
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — The named bundle }
+  - id: val_accent_b6553a
+    name: "#b6553a"
+    kind: clay-brass-accent
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — The named bundle }
+  - id: val_accent_b08947
+    name: "#b08947"
+    kind: clay-brass-accent
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — The named bundle }
+  - id: val_accent_9a2436
+    name: "#9a2436"
+    kind: clay-brass-accent
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — The named bundle }
+  - id: val_text_1a1714
+    name: "#1a1714"
+    kind: warm-near-black-text
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — The named bundle }
+  - id: val_text_1a1814
+    name: "#1a1814"
+    kind: warm-near-black-text
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — The named bundle }
+  - id: val_text_1b1814
+    name: "#1b1814"
+    kind: warm-near-black-text
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — The named bundle }
+  - id: val_face_fraunces
+    name: Fraunces
+    kind: default-display-serif
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — The named bundle }
+  - id: val_face_instrument_serif
+    name: Instrument Serif
+    kind: default-display-serif
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — The named bundle }
+
+# ── ANTIPATTERNS ──────────────────────────────────────────────────────
+# The negative half. `threshold` carries the composite case, where any one
+# member is legitimate and only the bundle is a problem. `count_rule` carries
+# the observations that are about frequency rather than presence.
+
+antipattern:
+  - id: anti_convergence_bundle
+    name: The convergence composite
+    summary: >-
+      A warm off-white ground, a high-contrast display serif and a single clay
+      accent, arriving together whatever the subject.
+    threshold: 3
+    severity: warn
+    resolution: >-
+      A brief naming any of these wins outright, and established brand truth
+      wins outright. What this catches is the same combination appearing
+      regardless of subject — so it demands a recorded justification, not a
+      redesign.
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — The named bundle }
+
+  - id: anti_terminal_cliche
+    name: Decorative terminal clichés
+    summary: Terminal styling the product has not earned.
+    severity: warn
+    condition: Correct where the product genuinely is a terminal tool.
+    evidence: { source: ls-design-art-direction/references/direction-families.md — Precise technical }
+
+  - id: anti_mono_as_costume
+    name: Monospace as costume
+    summary: >-
+      Monospace on a navigation item or a marketing label, where the content is
+      neither tabular nor numeric — signalling technical character the product
+      has not earned.
+    severity: warn
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — three motifs }
+
+  - id: anti_trailing_arrow
+    name: A trailing arrow on ordinary link text
+    summary: >-
+      Correct for genuinely directional navigation — next, previous, pagination.
+      On an ordinary link it repeats an affordance the link already has.
+    severity: info
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — three motifs }
+
+  - id: anti_eyebrow_overuse
+    name: Tracked all-caps eyebrow labels
+    count_rule: more than one per three sections
+    severity: info
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — Countable observations }
+
+  - id: anti_middle_dot_metadata
+    name: Middle dots separating metadata
+    count_rule: two or more on a line
+    severity: info
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — Countable observations }
+
+  - id: anti_repeated_split
+    name: Consecutive sections repeating one image-and-text split
+    count_rule: more than two in a row
+    severity: warn
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — Countable observations }
+
+  - id: anti_too_few_layout_families
+    name: Too few distinct layout families across a long page
+    count_rule: fewer than four across eight sections
+    severity: warn
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — Countable observations }
+
+  - id: anti_one_shadow_everywhere
+    name: One shadow value under every card
+    summary: Or a pure-black drop shadow on a light surface.
+    severity: warn
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — Countable observations }
+
+  - id: anti_one_radius_everywhere
+    name: One corner radius on every element
+    summary: Applied regardless of hierarchy or material.
+    severity: warn
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — Countable observations }
+
+  - id: anti_entrance_on_every_section
+    name: An entrance animation on every section
+    summary: Rather than one orchestrated moment.
+    count_rule: more than one unmotivated reveal
+    severity: warn
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — Countable observations }
+
+  - id: anti_scroll_cues
+    name: Scroll cues
+    summary: Text or an animated wheel telling the person the page scrolls.
+    severity: info
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — Countable observations }
+
+  - id: anti_fabricated_interface
+    name: A fabricated product interface built from markup
+    summary: A fake version string, a mock status readout, an invented screenshot in HTML.
+    severity: error
+    evidence: { source: ls-design/references/natural-color-and-humanization.md — Countable observations }
+
+  - id: anti_invented_precision
+    name: Invented precision
+    summary: >-
+      A statistic, award or quotation with no traceable source. The most
+      damaging kind of generic copy, because it reads as fact.
+    severity: error
+    evidence: { source: ls-design/references/interface-copy.md — Evidence }
+
+  - id: anti_duplicate_intent_actions
+    name: Two actions on one page resolving to the same intent
+    summary: >-
+      "Get in touch", "Contact us" and "Let's talk" are one action with three
+      names. The person cannot tell the options apart.
+    count_rule: two or more resolving to one intent
+    severity: warn
+    evidence: { source: ls-design/references/interface-copy.md — Countable observations }
+
+  - id: anti_long_primary_action
+    name: A primary action longer than three words
+    summary: Or one that wraps at any width. The action stops reading as an action.
+    severity: warn
+    evidence: { source: ls-design/references/interface-copy.md — Countable observations }
+
+  - id: anti_verb_changes_at_confirmation
+    name: A verb that changes between an action and its confirmation
+    summary: "`Publish` producing `Success` breaks the chain that says what happened."
+    severity: warn
+    evidence: { source: ls-design/references/interface-copy.md — Countable observations }
+
+  - id: anti_apologising_error
+    name: An error that apologises or names no next step
+    summary: "Emotion in place of direction. `Oops! Something went wrong.`"
+    severity: warn
+    evidence: { source: ls-design/references/interface-copy.md — Countable observations }
+
+  - id: anti_empty_state_without_action
+    name: An empty state with no action in it
+    summary: The moment of highest intent spent on a status message.
+    severity: error
+    evidence: { source: ls-design/references/interface-copy.md — Countable observations }
+
+  - id: anti_title_case_headings
+    name: Title case headings where the product uses sentence case
+    summary: Template chrome rather than a decision.
+    severity: info
+    evidence: { source: ls-design/references/interface-copy.md — Countable observations }
+
+  - id: anti_filler_latin
+    name: Filler Latin, or hint text as a field's only label
+    summary: Layout untested against real language; a label that vanishes on focus is not a label.
+    severity: error
+    evidence: { source: ls-design/references/interface-copy.md — Countable observations }

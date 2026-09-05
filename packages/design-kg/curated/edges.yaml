@@ -1,0 +1,312 @@
+# Curated edges — batch one.
+#
+# Six relations, closed. A seventh is a schema change through lint and review,
+# because the alternative is measured: a graph in this estate reached 76 edge
+# types over 597 edges, 35 of them appearing exactly once, with `enables`,
+# `enabled_by` and `enables_methodology` all distinct — so a traversal for
+# "what enables X" silently missed two thirds of the answer.
+#
+#   requires         A cannot be honoured without B
+#   suits_use_case   A is appropriate for condition B
+#   conflicts_with   A and B should not be combined
+#   substitutes_for  A does the same job as B
+#   component_of     A counts toward composite antipattern B
+#   warns_about      A carries a known failure mode B
+#
+# `provenance` on suits_use_case is load-bearing:
+#   canon   — the corpus says so
+#   chosen  — a person picked it in a real interview
+# A rule someone actually chose outranks a rule someone wrote down, and the
+# `chosen` edges are how this graph learns from use rather than from assertion.
+
+schema: design-kg/curated-edges/1.0
+
+# ── the composite, made mechanical ────────────────────────────────────
+# anti_convergence_bundle fires at 3 of these. Any one alone is legitimate.
+
+component_of:
+  - { source: val_ground_f4f1ea,          target: anti_convergence_bundle }
+  - { source: val_ground_f5f1ea,          target: anti_convergence_bundle }
+  - { source: val_ground_f7f5f1,          target: anti_convergence_bundle }
+  - { source: val_ground_fbf8f1,          target: anti_convergence_bundle }
+  - { source: val_accent_d97757,          target: anti_convergence_bundle }
+  - { source: val_accent_b6553a,          target: anti_convergence_bundle }
+  - { source: val_accent_b08947,          target: anti_convergence_bundle }
+  - { source: val_accent_9a2436,          target: anti_convergence_bundle }
+  - { source: val_text_1a1714,            target: anti_convergence_bundle }
+  - { source: val_text_1a1814,            target: anti_convergence_bundle }
+  - { source: val_text_1b1814,            target: anti_convergence_bundle }
+  - { source: val_face_fraunces,          target: anti_convergence_bundle }
+  - { source: val_face_instrument_serif,  target: anti_convergence_bundle }
+
+# ── what each direction is appropriate for ────────────────────────────
+
+suits_use_case:
+  - source: dir_precise_technical
+    target: cond_content_tabular_numeric
+    provenance: canon
+    rationale: Calibrated density and exact labels are what comparing numbers needs.
+    evidence: { source: direction-families.md — Precise technical }
+
+  - source: dir_precise_technical
+    target: cond_platform_offline_local
+    provenance: canon
+    rationale: Motion tied to system state suits a tool whose state is entirely local and visible.
+    evidence: { source: direction-families.md — Precise technical }
+
+  # The first `chosen` edge in this graph. Not inferred — decided by a person on
+  # 2026-09-05 for the freelance dashboard, with editorial restraint as the
+  # counterpoint for its reading surfaces.
+  - source: dir_precise_technical
+    target: cond_audience_solo_operator
+    provenance: chosen
+    rationale: >-
+      Chosen for a solo developer's opportunity tracker, where the work is
+      comparing rates and fit scores. Editorial restraint carries the detail and
+      profile surfaces as the quiet counterpoint.
+    evidence: { source: blueprints/freelance-dashboard/design.system.yaml — direction; user decision 2026-09-05 }
+
+  - source: dir_editorial_restraint
+    target: cond_content_long_prose
+    provenance: canon
+    rationale: Type-led hierarchy and deliberate measure are what continuous reading needs.
+    evidence: { source: direction-families.md — Editorial restraint }
+
+  - source: dir_tactile_human
+    target: cond_brand_established
+    provenance: canon
+    rationale: Material imagery and warm colour relationships need a real material world to draw from.
+    evidence: { source: direction-families.md — Tactile human }
+
+  - source: dir_cultural_expressive
+    target: cond_brand_established
+    provenance: canon
+    rationale: Grounded in a real cultural or brand context, or it is superficial borrowing.
+    evidence: { source: direction-families.md — Cultural expressive }
+
+# ── what a choice commits you to ──────────────────────────────────────
+
+requires:
+  - source: dir_precise_technical
+    target: prim_mono_for_numerics
+    rationale: Exact labels and calibrated density mean alignment carries meaning.
+    evidence: { source: direction-families.md — Precise technical }
+
+  - source: dir_precise_technical
+    target: prim_motion_communicates_state
+    rationale: The family's own definition ties motion to system state.
+    evidence: { source: direction-families.md — Precise technical }
+
+  - source: dir_editorial_restraint
+    target: prim_measure_60_72
+    rationale: Deliberate measure is the family's first named property.
+    evidence: { source: direction-families.md — Editorial restraint }
+
+  - source: dir_editorial_restraint
+    target: prim_hierarchy_before_containers
+    rationale: Distinction comes from proportion and pacing, not from boxes.
+    evidence: { source: core-principles.md — Hierarchy }
+
+  - source: dir_cinematic_spatial
+    target: prim_effects_are_materials
+    rationale: Depth, light and atmosphere are materials and must behave like them.
+    evidence: { source: core-principles.md — Color and materials }
+
+  - source: cond_locale_rtl
+    target: prim_recompose_dont_shrink
+    rationale: Mirroring is a composition decision, not a transform applied to a fixed layout.
+    evidence: { source: rtl-foundations.md — referenced by 11 skills }
+
+  - source: chk_ordinary_state_quality
+    target: prim_empty_screen_invites_action
+    rationale: >-
+      The ordinary states are where generic output fails, and the empty screen
+      is the ordinary state most often left as a status message.
+    evidence: { source: interface-copy.md — Failure and emptiness }
+
+  - source: chk_specific_language
+    target: prim_one_vocabulary
+    rationale: Specific language is worth little if the same concept has three names.
+    evidence: { source: interface-copy.md — Name things as the user understands them }
+
+  - source: chk_traceable_premise
+    target: prim_content_provenance
+    rationale: A premise cannot be traceable while the content in it is invented.
+    evidence: { source: contract-schema.md — Content schemas }
+
+  - source: chk_contrast_measured
+    target: prim_role_border_vs_border_strong
+    rationale: >-
+      The two border roles exist precisely because one is exempt from 3:1 and
+      the other is not. Measuring contrast without that distinction either
+      flattens the design or fails a hairline that was correct.
+    evidence: { source: contract-schema.md — Colors }
+
+  - source: chk_contrast_measured
+    target: prim_dark_by_prefix
+    rationale: Both modes must pass, so both modes must exist as declared values.
+    evidence: { source: contract-schema.md — Rules for the frontmatter }
+
+  - source: chk_motif_restraint
+    target: prim_accent_has_one_job
+    rationale: >-
+      One principal signature and one counterpoint is unenforceable while the
+      accent marks every call to action, label, icon and status.
+    evidence: { source: natural-color-and-humanization.md — Treat effects as materials }
+
+  - source: cond_volume_sparse_then_dense
+    target: prim_empty_screen_invites_action
+    rationale: >-
+      A surface that is empty for its first week spends that week as its empty
+      state. It is the primary surface, not a fallback.
+    evidence: { source: interface-copy.md — Failure and emptiness }
+
+# ── what does not go together ─────────────────────────────────────────
+
+conflicts_with:
+  - source: chk_content_led_geometry
+    target: anti_repeated_split
+    rationale: Structure repeating means the template is driving, not the material.
+    evidence: { source: natural-color-and-humanization.md — Countable observations }
+
+  - source: chk_content_led_geometry
+    target: anti_too_few_layout_families
+    rationale: Fewer than four families across eight sections is a template with variations.
+    evidence: { source: natural-color-and-humanization.md — Countable observations }
+
+  - source: chk_rhythm
+    target: anti_entrance_on_every_section
+    rationale: Constant spectacle is the absence of pacing, not an excess of it.
+    evidence: { source: natural-color-and-humanization.md — Humanization gate }
+
+  - source: chk_specific_language
+    target: anti_title_case_headings
+    rationale: Title case on every heading reads as template chrome rather than a decision.
+    evidence: { source: interface-copy.md — Register and mechanics }
+
+  - source: prim_effects_are_materials
+    target: anti_one_shadow_everywhere
+    rationale: >-
+      One shadow value under every card means shadow is decoration, not a
+      material with a light source.
+    evidence: { source: natural-color-and-humanization.md — Countable observations }
+
+  - source: prim_content_provenance
+    target: anti_fabricated_interface
+    rationale: A version string or status readout built from markup is invention with a source of "none".
+    evidence: { source: natural-color-and-humanization.md — Countable observations }
+
+  - source: prim_content_provenance
+    target: anti_filler_latin
+    rationale: Filler hides that the layout was never tested against real language.
+    evidence: { source: interface-copy.md — Countable observations }
+
+  - source: prim_action_says_what_happens
+    target: anti_verb_changes_at_confirmation
+    rationale: The verb surviving into the confirmation is the same rule stated positively.
+    evidence: { source: interface-copy.md — Actions }
+
+  - source: prim_action_says_what_happens
+    target: anti_long_primary_action
+    rationale: An action past three words has stopped saying what happens and started describing it.
+    evidence: { source: interface-copy.md — Countable observations }
+
+  - source: prim_error_states_next_step
+    target: anti_apologising_error
+    rationale: Emotion in place of direction — the direct negation.
+    evidence: { source: interface-copy.md — Failure and emptiness }
+  - source: prim_mono_for_numerics
+    target: anti_mono_as_costume
+    rationale: >-
+      The same primitive, correct or costume depending only on whether the
+      content is genuinely tabular. The condition is the whole rule.
+    evidence: { source: natural-color-and-humanization.md — three motifs }
+
+  - source: prim_hierarchy_before_containers
+    target: anti_one_radius_everywhere
+    rationale: >-
+      One radius on everything is the tell that containers are doing the work
+      composition should be doing.
+    evidence: { source: core-principles.md — Hierarchy }
+
+  - source: prim_accent_has_one_job
+    target: anti_duplicate_intent_actions
+    rationale: >-
+      An accent marking one action per surface is unenforceable while three
+      buttons resolve to the same intent.
+    evidence: { source: interface-copy.md — Actions }
+
+  - source: prim_content_provenance
+    target: anti_invented_precision
+    rationale: Provenance and invented precision are the same question answered two ways.
+    evidence: { source: interface-copy.md — Evidence }
+
+  - source: prim_empty_screen_invites_action
+    target: anti_empty_state_without_action
+    rationale: Direct negation; this pair is what DSC-03 mechanises.
+    evidence: { source: interface-copy.md — Countable observations }
+
+  - source: prim_motion_communicates_state
+    target: anti_entrance_on_every_section
+    rationale: >-
+      Motion on every section communicates nothing about state, which is the
+      only thing motion is permitted to communicate.
+    evidence: { source: core-principles.md — Motion }
+
+# ── known failure modes a choice carries ──────────────────────────────
+
+warns_about:
+  - source: dir_precise_technical
+    target: anti_terminal_cliche
+    rationale: >-
+      The family's own caution. Choosing it makes this the failure mode most
+      likely to arrive uninvited.
+    evidence: { source: direction-families.md — Precise technical }
+
+  - source: dir_cinematic_spatial
+    target: anti_scroll_cues
+    rationale: Depth and sequence invite telling the person the page scrolls.
+    evidence: { source: direction-families.md — Cinematic spatial }
+
+  - source: dir_cultural_expressive
+    target: anti_invented_precision
+    rationale: >-
+      Cultural grounding is claimed rather than shown when the specifics have no
+      source, which is superficial borrowing wearing evidence.
+    evidence: { source: direction-families.md — Cultural expressive }
+
+  - source: dir_editorial_restraint
+    target: anti_eyebrow_overuse
+    rationale: Type-led hierarchy reaches for the tracked all-caps label first.
+    evidence: { source: natural-color-and-humanization.md — Countable observations }
+
+  - source: dir_editorial_restraint
+    target: anti_middle_dot_metadata
+    rationale: Editorial metadata lines are where the middle dot accumulates.
+    evidence: { source: natural-color-and-humanization.md — Countable observations }
+
+  - source: dir_editorial_restraint
+    target: anti_trailing_arrow
+    rationale: >-
+      A type-led surface reaches for the arrow to mark a link it has otherwise
+      left undecorated, repeating an affordance the link already has.
+    evidence: { source: natural-color-and-humanization.md — three motifs }
+
+  - source: dir_tactile_human
+    target: anti_convergence_bundle
+    rationale: >-
+      Warm colour relationships and material imagery lead straight into the warm
+      off-white ground and clay accent that make up the composite.
+    evidence: { source: natural-color-and-humanization.md — The named bundle }
+
+# ── substitutes ───────────────────────────────────────────────────────
+# Stored once, directed. Query with direction=both; storing both ways
+# double-counts.
+
+substitutes_for:
+  - source: prim_type_roles_not_sizes
+    target: prim_semantic_roles_not_names
+    rationale: >-
+      The same discipline applied to two dimensions — name the job, not the
+      appearance. Either one teaches the other.
+    evidence: { source: contract-schema.md — Rules for the frontmatter }
