@@ -67,6 +67,17 @@ export class Harness {
 
   designState(slug: string): DesignState { return readDesignState(this.designDir(slug)); }
 
+  /** A stored screen's path as the studio recorded it, for conformance checks. */
+  firstStoredScreen(slug: string): string | null {
+    const state = join(this.designDir(slug), 'design.json');
+    if (!existsSync(state)) return null;
+    try {
+      const doc = JSON.parse(readFileSync(state, 'utf8')) as { screens?: { files?: { html?: string } }[] };
+      const html = (doc.screens ?? []).map((screen) => screen.files?.html).find(Boolean);
+      return html ?? null;
+    } catch { return null; }
+  }
+
   /** The design gate's last report, if it has been run. Absent is not a pass. */
   designGateChecks(slug: string): { id: string; status: 'pass' | 'fail' | 'vacuous'; detail: string }[] {
     const report = join(this.designDir(slug), '__checks__', 'tokens.report.json');

@@ -49,10 +49,6 @@ storage depth; nobody else does) · copy `tokens.css` into each revision
 directory · document the depth, which is cheapest and worst because it exports
 an implementation detail.
 
-Related and cheap: unmatched paths return `200` with the SPA shell, so a missing
-stylesheet reads as success and only the `content-type` gives it away. A `404`
-for anything with a file extension would have made this self-diagnosing.
-
 **Your validator was right and we were wrong.** It refused an attempt to inline
 token values as a fallback — *"a token-driven screen must render from
 `var(--ls-*)` and same-origin assets only"* — and that refusal stopped a bad

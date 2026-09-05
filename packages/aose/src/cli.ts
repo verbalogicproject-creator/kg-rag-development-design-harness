@@ -15,6 +15,7 @@ import { lintDir } from './lint.ts';
 import { formatConverge } from './converge.ts';
 import { designCheck, formatReport, loadDesignSystem } from './designcheck.ts';
 import { checkFocusVisible, checkReducedMotion, checkOverflow } from './designbrowser.ts';
+import { studioConformance, formatConformance } from './studiocheck.ts';
 import { ADAPTERS } from './adapters/index.ts';
 
 const USAGE = `aose — Agent-Oriented Software Engineering harness v2
@@ -43,6 +44,7 @@ const USAGE = `aose — Agent-Oriented Software Engineering harness v2
     design-status <slug>           Screens, decisions, gate state and blockers
     design-handoff <slug>          Export the frozen handoff (the studio gates this)
     design-check <slug>            Run the design gate: tokens on scale, contrast in both modes
+    design-verify <slug>           Check the running studio still serves what the harness assumes
     design-lint <slug> --domain D --url U
                                    Check a built surface against the frozen contract
 
@@ -75,6 +77,7 @@ const { values, positionals } = parseArgs({
     fixture: { type: 'string' }, attempts: { type: 'string' }, timeout: { type: 'string' },
     adapters: { type: 'string' },
     url: { type: 'string' }, name: { type: 'string' }, force: { type: 'boolean' },
+    screen: { type: 'string' }, href: { type: 'string' },
     'dry-run': { type: 'boolean' }, 'bypass-sandbox': { type: 'boolean' },
     json: { type: 'boolean' }, help: { type: 'boolean' },
   },
@@ -169,6 +172,23 @@ try {
         process.stdout.write(result.ok ? `\nPASS — 0 errors, ${result.warnings.length} warning(s)\n` : `\nFAIL — ${result.errors.length} error(s)\n`);
       }
       process.exitCode = result.ok ? 0 : 1;
+      break;
+    }
+    case 'design-verify': {
+      /* The harness assumes things about how the studio stores and serves a
+         screen. Assumptions that are checked are contracts; assumptions that
+         are not are the reason eight screens once rendered as raw markup. */
+      /* The stored path comes from design.json, where the studio records it.
+         Deriving it from a slug and a guessed revision would be inventing the
+         very implementation detail this check exists to stop trusting. */
+      const screenPath = (values.screen as string) ?? harness.firstStoredScreen(slug);
+      const report = await studioConformance(
+        (values.url as string) ?? 'http://127.0.0.1:4177',
+        screenPath,
+        (values.href as string) ?? '../../../tokens.css',
+      );
+      process.stdout.write(json ? `${JSON.stringify(report, null, 2)}\n` : `${formatConformance(report)}\n`);
+      process.exitCode = report.ok ? 0 : 1;
       break;
     }
     case 'design-check': {
