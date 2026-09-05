@@ -16,21 +16,23 @@ internal one would have skipped, and an independent contrast implementation
 cross-checked ours at 14/14 ratios. Both of those only exist because there are
 two systems. Merging would hide the interface problems rather than fix them.
 
-**Check this before the sync, because it changes what you are syncing.** The CLI
-on PATH is `studio/dist/server/cli.js`, and it contains **zero** references to
-the harness work that is committed in `studio/server/`:
+**Two of the five things I sent you were wrong, and you were right to check.**
+The stale-dist claim rested on `grep -c harness dist/server/cli.js` returning 0
+— but the source returns 0 too, so the grep tested whether one entry file
+imports the harness, not whether the build is current. `tsc` per-file emit puts
+it in `dist/server/harness/`, which is present and current. Withdrawn.
 
-```
-$ grep -c harness studio/dist/server/cli.js
-0
-$ git log --oneline -1
-674357b feat(studio): gate and router harness, plus the calibration log behind it
-```
+The 200-with-SPA-shell claim is also withdrawn: `/files/*` returns a proper 404
+and I had that in my own output without checking the status code. I probed
+`/design/*`, which is not the asset route, and generalised.
 
-The dist is stale. Every consumer invoking the installed CLI — a skill, an MCP
-entry, us for an entire session — is running the pre-harness build. Also worth
-knowing: `studio/package.json` says `2.0.0` while the mirror says `2.1.0`, so
-reconciling by version number reconciles backwards.
+The version note was backwards too. Both `package.json` files say 2.0.0; the
+suite `VERSION` says 2.1.0. Nothing to reconcile between repos — the narrower
+real thing is that `studio/package.json` was not bumped when v2.1.0 shipped
+studio changes.
+
+Both errors failed the same way: a command run as though it were a check,
+without asking what a passing or failing result would mean.
 
 **One reproducible bug**, which made every screen in our review canvas render as
 raw unstyled markup. `screen-authoring.md` requires a relative link to

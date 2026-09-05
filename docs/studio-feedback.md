@@ -2,38 +2,72 @@
 
 Written from building an eight-screen design contract through the studio end to
 end — init, tokens, screens, approval, handoff — as the design plane of an
-external harness. Everything below is something that cost time, with a
-reproduction. Nothing is a style opinion.
+external harness.
+
+**Revised after L.S.Design checked the claims.** Two of the five did not hold
+and are withdrawn below with the counter-evidence. They failed the same way:
+a command was run as though it were a check, without asking what a passing or
+failing result would actually mean. A grep for a string in one file is not a
+test of whether a build is current, and probing `/design/` says nothing about
+`/files/`. Verifying before acting was the right call and it cost me two
+findings.
+
+The remaining three hold, and §3 is the one that matters.
 
 ---
 
-## 1. The installed build is stale, and that is probably the first thing to check
+## 1. WITHDRAWN — "the installed build is stale"
+
+**This claim was wrong.** It rested on a test that did not test what I thought
+it tested, and the L.S.Design side was right to check it rather than act on it.
+
+I ran `grep -c harness studio/dist/server/cli.js`, got `0`, and concluded the
+build predated the harness work. But:
 
 ```
-$ readlink -f $(which ls-design-studio)
-/root/frontend-skill/L.S.Design/studio/dist/server/cli.js
-
-$ git -C /root/frontend-skill/L.S.Design log --oneline -1
-674357b feat(studio): gate and router harness, plus the calibration log behind it
-
-$ grep -c harness studio/dist/server/cli.js
-0
+grep -c harness server/cli.ts    → 0     ← the SOURCE has none either
+grep -c harness dist/…/cli.js    → 0
+ls dist/server/harness/          → route.js, run.js   present and current
+find server shared -name '*.ts' -newer dist/server/cli.js  → nothing
 ```
 
-The harness work is committed in `studio/server/` and absent from `studio/dist/`.
-Anyone invoking the installed CLI — which is what a skill or an MCP entry does —
-is running the pre-harness build. A whole session ran against it without
-noticing, because nothing surfaces the mismatch.
+`build:server` is `tsc -p` — per-file emit, not a bundle — so the harness lands
+in its own files. My grep measured whether one entry file *imports* the harness,
+which it does not and need not. **The CLI on PATH is current. Nothing to
+re-sync.**
 
-Worth considering a `dist` freshness check, or building on publish.
+## 2. WITHDRAWN — "a missing file returns 200 and the SPA shell"
 
-## 2. The version numbers point the wrong way
+**Also wrong, and I had the disconfirming evidence in my own output.**
 
-`studio/package.json` in the monorepo says **2.0.0**; the standalone mirror is at
-**2.1.0**. So the mirror reads as newer while the monorepo is ahead on content.
-Anyone reconciling the two by version number will reconcile them backwards.
+`/files/*` mounts before the catch-all and returns a proper 404:
 
----
+```
+404 text/plain    /files/screens/<slug>/tokens.css
+404 text/plain    /files/nope.css
+200 text/html     /design/tokens.css      ← not the asset route
+200 text/html     /design/nope.css
+```
+
+I probed `/design/*` paths, saw the SPA shell, and generalised to "unmatched
+paths". `/design/` is not where assets are served. Worse: I *did* probe
+`/files/.../tokens.css`, recorded `not found` in the body, and never checked the
+status code — so I wrote a claim that my own transcript contradicted.
+
+The fix I suggested — 404 for anything with a file extension — is the existing
+behaviour under `/files/`. There is nothing to do here.
+
+## 2b. The version note, corrected
+
+Both `package.json` files say **2.0.0**, the mirror's included, because it came
+from the same bytes. What says **2.1.0** is the suite `VERSION` and the release
+commit. So there is nothing to reconcile *between* the repos.
+
+The real inconsistency is narrower and still worth fixing: `studio/package.json`
+was not bumped when v2.1.0 shipped studio changes.
+
+I verified the monorepo's version and then restated the mirror's from prose as
+though it were a checked fact. It was not.
 
 ## 3. The bug: a stored screen cannot resolve the link the docs require
 
@@ -60,7 +94,7 @@ rooted at the design directory. From there, `../tokens.css` resolves to
 
 ```
 /files/tokens.css                       → 200 text/css      ✓
-/files/screens/<slug>/tokens.css        → not found         ✗   ← what ../ resolves to
+/files/screens/<slug>/tokens.css        → 404 text/plain    ✗   ← what ../ resolves to
 /files/screens/<slug>/r1/code.html      → 200 text/html     ✓
 ```
 
@@ -93,24 +127,7 @@ It just currently guards a path that cannot succeed.
 
 ---
 
-## 4. A missing file returns 200 and the SPA shell
-
-Every unmatched path under `/design/` and `/files/` answers with `index.html` at
-status 200. Diagnosing §3 took far longer than it should have because
-`/design/tokens.css` returned **200** and looked like it was working; only the
-`content-type` gave it away.
-
-```
-$ curl -s -o /dev/null -w '%{http_code} %{content_type}' /design/tokens.css
-200 text/html; charset=utf-8      ← reads as success, is not
-```
-
-A 404 for asset-shaped requests (anything with a file extension) would make this
-class of problem self-diagnosing.
-
----
-
-## 5. Convergent findings — your calibration log and an external harness agree
+## 4. Convergent findings — your calibration log and an external harness agree
 
 `docs/HARNESS_CALIBRATION.md` records:
 
@@ -138,7 +155,7 @@ there; only the check is missing.
 
 ---
 
-## 6. What worked well, since a bug list is not a review
+## 5. What worked well, since a bug list is not a review
 
 - **`studio_get_tokens` computing contrast independently** was the single most
   valuable thing encountered. It cross-checked an external WCAG implementation
