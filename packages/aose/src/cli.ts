@@ -55,6 +55,7 @@ const USAGE = `aose — Agent-Oriented Software Engineering harness v2
     --dry-run         Build payloads and print command lines; spawn nothing
     --attempts N      Override the attempt bound
     --timeout N       Per-attempt timeout in minutes
+    --parallel N      Run up to N independent domains at once (default 1)
     --turns N         Override the worker's turn budget (claude, agy)
     --model M         Override the worker's model
     --bypass-sandbox  Codex only: skip the landlock sandbox (PRoot fallback)
@@ -77,7 +78,7 @@ const { values, positionals } = parseArgs({
     root: { type: 'string' }, dir: { type: 'string' }, file: { type: 'string' },
     by: { type: 'string' }, domain: { type: 'string' }, adapter: { type: 'string' }, reason: { type: 'string' },
     fixture: { type: 'string' }, attempts: { type: 'string' }, timeout: { type: 'string' },
-    turns: { type: 'string' }, model: { type: 'string' },
+    turns: { type: 'string' }, model: { type: 'string' }, parallel: { type: 'string' },
     adapters: { type: 'string' },
     url: { type: 'string' }, name: { type: 'string' }, force: { type: 'boolean' },
     screen: { type: 'string' }, href: { type: 'string' },
@@ -260,6 +261,10 @@ try {
            else. ui/client needed them: 13 deliverables plus 22 seeded design
            files is more reading than a 40-turn budget leaves room to write
            against. */
+        /* The DAG already says which domains are independent; running them
+           in single file cost 41% of the dashboard's wall clock. Defaults to
+           1, so a run only fans out when asked. */
+        parallel: values.parallel ? Number(values.parallel) : undefined,
         maxTurns: values.turns ? Number(values.turns) : undefined,
         model: values.model as string | undefined,
         bypassSandbox: Boolean(values['bypass-sandbox']),

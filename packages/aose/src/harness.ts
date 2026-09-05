@@ -313,6 +313,8 @@ export class Harness {
     domain?: string; adapter?: string; dryRun?: boolean; fixtureRoot?: string;
     maxAttempts?: number; timeoutMinutes?: number; bypassSandbox?: boolean;
     maxTurns?: number; model?: string;
+    /** How many independent domains may run at once. Defaults to 1. */
+    parallel?: number;
     onEvent?: (message: string) => void;
   } = {}): Promise<DispatchResult[]> {
     const project = this.requireProject(slug);
@@ -343,35 +345,37 @@ export class Harness {
     const adapter = options.adapter ?? 'fake';
     const results: DispatchResult[] = [];
 
-    for (const domain of domains) {
+    /* Which domains are ready, given what has passed. The DAG already says
+       what may run at once and dispatch walked it in single file anyway: on
+       the dashboard that was 57 minutes of wall clock against a 34-minute
+       critical path, because core/match, core/parse and infra/store all wait
+       only on core/opportunity. Parallelism defaults to 1, so nothing changes
+       unless it is asked for. */
+    const parallel = Math.max(1, options.parallel ?? 1);
+    const pending = new Set(domains);
+    const failed: string[] = [];
+
+    const depsOf = (domain: string): string[] =>
+      artifacts.manifest?.system.boundaries.find((b) => b.domain === domain)?.depends_on ?? [];
+
+    const runOne = async (domain: string): Promise<void> => {
       const spec = artifacts.specs?.[domain];
       const task = artifacts.tasks?.[domain]?.task;
       if (!spec || !task) throw new Error(`No compiled spec/task for domain "${domain}".`);
 
-      const boundary = artifacts.manifest.system.boundaries.find((b) => b.domain === domain);
-      for (const upstream of boundary?.depends_on ?? []) {
-        if (!options.dryRun && !this.ledger.domainPassed(slug, upstream)) {
-          throw new Error(`Domain "${domain}" depends on "${upstream}", which has not passed its gate yet. Dispatch in topological order.`);
-        }
-      }
-
-      /* The same bytes, the same adapter, and this pair has already exhausted
-         its attempts. Running it again cannot produce a different result — it
-         is deterministic input to the same worker — and the harness let it
-         happen twice before this check existed, spending two respec
-         allowances to learn nothing. Keyed on the adapter, not just the
-         digest, because running an unchanged blueprint through a DIFFERENT
-         worker is the whole cross-agent reproducibility protocol. */
       if (!options.dryRun) {
         const digest = this.approvalDigest(slug);
         /* Already passed, same worker, same bytes. Re-running it spends real
            budget to reproduce a result the ledger already holds. Keyed on the
-           adapter for the same reason the refusal below is: running a passing
-           blueprint through a second worker is a comparison, not a repeat. */
+           adapter because running a passing blueprint through a second worker
+           is a comparison, not a repeat. */
         if (matchBlocked(this.ledger.findings(slug, 'passed').map((f) => f.body), domain, adapter, digest)) {
           options.onEvent?.(`[${adapter}] ${domain} already passed its gate with this blueprint — skipping`);
-          continue;
+          return;
         }
+        /* The same bytes, the same adapter, and this pair has already
+           exhausted its attempts. Running it again cannot produce a different
+           result — it is deterministic input to the same worker. */
         const dead = this.blockedBefore(slug, domain, adapter, digest);
         if (dead) {
           throw new Error(
@@ -401,30 +405,47 @@ export class Harness {
       });
       results.push(result);
 
-      if (!options.dryRun) {
-        if (result.passed) {
-          this.ledger.addFinding(slug, 'passed', { domain, adapter, digest: this.approvalDigest(slug) });
-          const allPassed = (order.length ? order : domains).every((d) => this.ledger.domainPassed(slug, d));
-          apply(this.ledger, slug, allPassed ? 'gate_pass' : 'gate_partial', null);
-        } else {
-          /* Record what failed, so the identical run can be refused rather
-             than repeated — but only when the failure was the blueprint's.
-             A timeout is a budget being too small, not an answer about the
-             work: the same input under a longer `--timeout` can genuinely
-             finish. Recording one would retire the (domain, adapter) pair for
-             a reason that says nothing about whether it can pass. Observed on
-             ui/client, the largest domain, which timed out at 900s. */
-          if (!isSettledFailure(result.attempts)) {
-            options.onEvent?.(`[${adapter}] ${domain} timed out, so it is not recorded as a settled failure — re-run with a longer --timeout`);
-          } else {
-            this.ledger.addFinding(slug, 'blocked', { domain, adapter, digest: this.approvalDigest(slug) });
-          }
-          apply(this.ledger, slug, 'gate_fail', null);
-          apply(this.ledger, slug, 'exhausted', null);
-          break;
-        }
+      if (options.dryRun) return;
+      if (result.passed) {
+        this.ledger.addFinding(slug, 'passed', { domain, adapter, digest: this.approvalDigest(slug) });
+        const allPassed = (order.length ? order : domains).every((d) => this.ledger.domainPassed(slug, d));
+        apply(this.ledger, slug, allPassed ? 'gate_pass' : 'gate_partial', null);
+        return;
       }
+
+      failed.push(domain);
+      /* Record what failed, so the identical run can be refused rather than
+         repeated — but only when the failure was the blueprint's. A timeout is
+         a budget being too small, not an answer about the work. */
+      if (!isSettledFailure(result.attempts)) {
+        options.onEvent?.(`[${adapter}] ${domain} timed out, so it is not recorded as a settled failure — re-run with a longer --timeout`);
+      } else {
+        this.ledger.addFinding(slug, 'blocked', { domain, adapter, digest: this.approvalDigest(slug) });
+      }
+      apply(this.ledger, slug, 'gate_fail', null);
+      apply(this.ledger, slug, 'exhausted', null);
+    };
+
+    while (pending.size && !failed.length) {
+      /* Ready means every declared dependency has passed its gate. A dry run
+         has nothing to wait for, so it keeps the declared order. */
+      const ready = readyDomains(pending, depsOf,
+        (up) => options.dryRun || this.ledger.domainPassed(slug, up));
+
+      if (!ready.length) {
+        const blocked = [...pending];
+        const waiting = blocked.map((d) => `${d} (waits on ${depsOf(d).filter((up) => !this.ledger.domainPassed(slug, up)).join(', ')})`);
+        throw new Error(
+          `Nothing can be dispatched: ${waiting.join('; ')}. Dispatch the upstream domains first, or include them in this run.`,
+        );
+      }
+
+      const wave = ready.slice(0, parallel);
+      for (const domain of wave) pending.delete(domain);
+      if (wave.length > 1) options.onEvent?.(`[${adapter}] running ${wave.length} domains in parallel: ${wave.join(', ')}`);
+      await Promise.all(wave.map(runOne));
     }
+
     return results;
   }
 
@@ -726,4 +747,21 @@ export function isSettledFailure(
   if (last.worker_timed_out) return false;       // the worker never finished
   if (last.gate?.timed_out) return false;        // the gate never finished
   return last.gate != null;                      // a gate that ran gave an answer
+}
+
+/**
+ * Which pending domains may start now.
+ *
+ * A domain is ready when every dependency it declares has passed its gate.
+ * Pure and exported because the interesting case cannot be reached through the
+ * fixture blueprints — tictactoe is a chain and rate-calculator is a single
+ * domain, so neither has two domains that may run at once, and a test using
+ * them would assert nothing about the fan-out this exists for.
+ */
+export function readyDomains(
+  pending: Iterable<string>,
+  depsOf: (domain: string) => string[],
+  hasPassed: (domain: string) => boolean,
+): string[] {
+  return [...pending].filter((domain) => depsOf(domain).every(hasPassed));
 }

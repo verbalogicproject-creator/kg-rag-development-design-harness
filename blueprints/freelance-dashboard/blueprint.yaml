@@ -1,7 +1,7 @@
 meta:
   slug: freelance-dashboard
   format: aose-blueprint/v2
-  generated_at: 2026-09-05T13:22:43.308Z
+  generated_at: 2026-09-05T15:06:02.982Z
 constitution:
   name: Freelance-Dashboard
   version: 1
@@ -248,8 +248,9 @@ manifest:
         spec: infra.feeds.spec.yaml
         task: infra.feeds.task.yaml
       - domain: infra/store
-        responsibility: SQLite persistence for opportunities, profile and scout history,
-          with schema migration.
+        responsibility: Persistence for opportunities, profile and scout history, with
+          schema migration, over whichever backend the host offers —
+          node:sqlite, browser storage, or memory.
         depends_on:
           - core/opportunity
         exports:
@@ -340,6 +341,30 @@ manifest:
         - Style during implementation
         - Apply a component library default theme
       sources: []
+    - id: DEC-06
+      statement: The store selects a persistence backend from its host and reaches the
+        node-only one through a dynamic import, so one module serves both the
+        CLI and the browser surface.
+      rationale: 'ui/client is browser-targeted and depends on infra/store. While the
+        store declared "esm-only, node24" the shipped bundle opened with
+        `import{DatabaseSync}from"node:sqlite"` and no browser could load it —
+        and neither gate could see it, because a bundler externalises specifiers
+        it does not recognise and the unit tests run in node, where that module
+        is real. A static import is resolved by a bundler whether or not it ever
+        executes, so the host check has to guard an `import()`, not an `if`.
+        Keeping one module behind one contract also keeps ART-05 honest: every
+        backend here is local, and the surface cannot quietly acquire a hosted
+        one.'
+      alternatives:
+        - Keep the store node-only and give ui/client its own browser store —
+          two implementations of one contract, drifting apart, with migrations
+          to write twice
+        - Put a port in ui/client and inject the node store — correct, but it
+          moves the host decision into the surface and leaves the browser case
+          unimplemented
+        - Persist nothing in the browser and treat the CLI as the only real
+          client — contradicts the premise that the dashboard is the product
+      sources: []
 specs:
   core/opportunity:
     module: core/opportunity
@@ -426,6 +451,9 @@ specs:
         postcondition: Returns true only for a transition the pipeline permits, and
           false for every transition out of a terminal stage.
         errors: []
+        totality: Stage is a closed union and the permitted-transition table is total
+          over its square, so every pair has an answer. There is no lookup that
+          can miss.
       "advance(opportunity: Opportunity, to: Stage, now: string, note: string): Result<Opportunity, StageError>":
         kind: transition
         precondition: canAdvance(opportunity.stage, to) is true and now is an ISO 8601
@@ -443,6 +471,8 @@ specs:
         precondition: stage is a declared Stage value.
         postcondition: Returns true exactly for won, lost and archived.
         errors: []
+        totality: Membership in a fixed three-element set of a closed union. Every Stage
+          is either in it or not.
     external_sources: []
     verification:
       test_suite: test/opportunity.test.js
@@ -543,6 +573,10 @@ specs:
         algorithm: weighted sum of skill overlap, rate margin above the profile minimum,
           keyword hits and posting recency, clamped to 0..100, short-circuited
           to zero on any exclusion match
+        totality: Every scoring rule contributes a delta or none, and the sum is clamped
+          into 0..100, so no input produces an undefined score. An exclusion
+          short-circuits to a zero score, which is a value rather than an
+          absence.
       "rankOpportunities(opportunities: readonly Opportunity[], profile: Profile, now: string): readonly { opportunity: Opportunity; score: Score }[]":
         kind: query
         precondition: Every opportunity is well formed and now is an ISO 8601 timestamp.
@@ -550,6 +584,9 @@ specs:
           descending then by postedAt descending. The input array is not
           mutated.
         errors: []
+        totality: A total map over the input followed by a total order on (score,
+          postedAt). An empty input yields an empty array, which is an answer
+          and not a failure.
     external_sources: []
     verification:
       test_suite: test/match.test.js
@@ -649,6 +686,9 @@ specs:
           null when none is stated. Never returns a rate the text does not
           contain.
         errors: []
+        totality: Absence is already in the return type. `null` means the text stated no
+          rate, which is the answer for that input rather than an error about
+          it.
       "parseBudget(text: string): Result<{ budget: Money; wasRange: boolean }, ParseError>":
         kind: transition
         precondition: text is a string.
@@ -664,6 +704,9 @@ specs:
           and lowercased, in the order they first appear. Returns an empty array
           rather than guessing when nothing matches.
         errors: []
+        totality: Intersection of the text with a caller-supplied vocabulary. No match
+          is an empty array, which is the correct answer to "which of these
+          appear".
     external_sources: []
     verification:
       test_suite: test/parse.test.js
@@ -800,6 +843,9 @@ specs:
         postcondition: Returns a stable key such that two listings of the same posting
           from different sources collide, and different postings do not.
         errors: []
+        totality: A pure function of fields the Opportunity type requires, so there is
+          no absent input to fail on. It hashes rather than looks up, so it
+          cannot miss.
     external_sources:
       - url: https://remotive.com/api/remote-jobs
         allowlist: feed_sources
@@ -852,16 +898,16 @@ specs:
           test_name: skips an authenticated source when its credential is absent
   infra/store:
     module: infra/store
-    runtime: esm-only, node24
+    runtime: esm-only, node24, browser
     requirements:
       - id: REQ-01
-        ears: WHEN the store is opened against a new file THE SYSTEM SHALL create its
-          schema and record the schema version.
+        ears: WHEN the store is opened against a new location THE SYSTEM SHALL create
+          its schema and record the schema version.
         verified_by:
           - SC-01
       - id: REQ-02
-        ears: WHEN the store is opened against a file from an older schema version THE
-          SYSTEM SHALL migrate it forward without losing existing rows.
+        ears: WHEN the store is opened against a location from an older schema version
+          THE SYSTEM SHALL migrate it forward without losing existing rows.
         verified_by:
           - SC-02
       - id: REQ-03
@@ -875,45 +921,82 @@ specs:
         verified_by:
           - SC-04
       - id: REQ-05
-        ears: IF a write fails THE SYSTEM SHALL leave the database unchanged and return
-          a discriminated error.
+        ears: IF a write fails THE SYSTEM SHALL leave the store unchanged and return a
+          discriminated error.
         verified_by:
           - SC-05
-    types: |
+      - id: REQ-06
+        ears: WHERE the module is loaded by a bundler THE SYSTEM SHALL carry no static
+          import of a host-only module, so a browser build contains no
+          unresolvable specifier.
+        verified_by:
+          - SC-06
+      - id: REQ-07
+        ears: WHEN opportunities are listed by stage THE SYSTEM SHALL resolve the query
+          through an index rather than scanning every row.
+        verified_by:
+          - SC-07
+      - id: REQ-08
+        ears: WHEN a browser-backed store is reopened at the same location THE SYSTEM
+          SHALL return the rows written before it was closed.
+        verified_by:
+          - SC-08
+    types: >
       import type { Opportunity, Stage, Result } from '../core/opportunity';
+
       import type { Profile } from '../core/match';
 
-      type StoreError = 'NOT_FOUND' | 'WRITE_FAILED' | 'MIGRATION_FAILED';
+
+      type StoreError = 'NOT_FOUND' | 'WRITE_FAILED' | 'MIGRATION_FAILED' |
+      'NO_BACKEND';
+
+
+      /* Which host the module found at load time. Reported rather than assumed,
+      so
+         a caller can say which store it is talking to instead of guessing. */
+      type Backend = 'sqlite' | 'web' | 'memory';
+
 
       interface Store {
-        readonly path: string;
+        /* Opaque to this contract: a file path under node, a database name in a
+           browser, ':memory:' anywhere for a store that persists nothing. */
+        readonly location: string;
+        readonly backend: Backend;
         readonly schemaVersion: number;
         close(): void;
       }
     contracts:
-      "openStore(path: string): Result<Store, StoreError>":
+      "openStore(location: string): Result<Store, StoreError>":
         kind: transition
-        precondition: path is a writable file path or the string ':memory:'.
-        postcondition: Returns an open store whose schema is at the current version,
-          creating or migrating it as needed. Existing rows survive a migration.
-          Returns MIGRATION_FAILED without altering the file when migration
-          cannot complete.
+        precondition: location is a writable file path, a browser database name, or the
+          string ':memory:'.
+        postcondition: Selects a backend from the host — node:sqlite under node, a
+          browser storage API in a browser, in-memory for ':memory:' — and
+          returns an open store whose schema is at the current version, creating
+          or migrating it as needed. Existing rows survive a migration. Returns
+          MIGRATION_FAILED without altering the store when migration cannot
+          complete, and NO_BACKEND when the host offers no persistence the
+          module can use. The node backend is reached only through a dynamic
+          import inside a host check, so a browser bundle never carries the
+          specifier.
         errors:
           - MIGRATION_FAILED
           - WRITE_FAILED
+          - NO_BACKEND
       "saveOpportunity(store: Store, opportunity: Opportunity): Result<Opportunity, StoreError>":
         kind: transition
         precondition: The store is open and the opportunity has an id.
         postcondition: Inserts or updates the row keyed by id and returns the stored
           opportunity. Writing the same opportunity twice leaves exactly one
-          row. On failure the database is unchanged.
+          row. On failure the store is unchanged.
         errors:
           - WRITE_FAILED
       "listOpportunities(store: Store, stage: Stage | null): Result<readonly Opportunity[], StoreError>":
         kind: transition
         precondition: The store is open.
         postcondition: Returns opportunities at the requested stage, or all of them when
-          stage is null, ordered by last update descending.
+          stage is null, ordered by last update descending. The stage query is
+          served by an index on (stage, updated_at), not a full scan.
         errors:
           - NOT_FOUND
       "saveProfile(store: Store, profile: Profile): Result<Profile, StoreError>":
@@ -935,15 +1018,15 @@ specs:
       test_suite: test/store.test.js
       scenarios:
         - id: SC-01
-          given: a path with no database
+          given: a location with no store
           when: the store is opened
           then: the schema is created at the current version
           test_name: creates the schema on first open
         - id: SC-02
-          given: a database written at an older schema version
+          given: a store written at an older schema version
           when: the store is opened
           then: it migrates forward and the existing rows survive
-          test_name: migrates an older database without losing rows
+          test_name: migrates an older store without losing rows
         - id: SC-03
           given: an opportunity saved twice
           when: it is listed
@@ -957,8 +1040,24 @@ specs:
         - id: SC-05
           given: a store whose write fails
           when: a save is attempted
-          then: WRITE_FAILED is returned and the database is unchanged
-          test_name: a failed write leaves the database untouched
+          then: WRITE_FAILED is returned and the store is unchanged
+          test_name: a failed write leaves the store untouched
+        - id: SC-06
+          given: the module's own source text
+          when: its top-level import statements are read
+          then: "none of them names a node: module, because a bundler resolves static
+            imports whether or not they ever run"
+          test_name: the module carries no static host-only import
+        - id: SC-07
+          given: a sqlite-backed store holding opportunities across stages
+          when: the query plan for a listing by stage is examined
+          then: the plan uses an index and does not scan the table
+          test_name: listing by stage is served by an index
+        - id: SC-08
+          given: a browser-backed store, with the browser storage API stubbed
+          when: rows are written, the store is closed and reopened at the same location
+          then: the rows written before the close are returned
+          test_name: a browser store survives being closed and reopened
   ui/client:
     module: ui/client
     runtime: vite, react 19, tailwind 4, typescript, vitest with testing-library
@@ -1043,6 +1142,9 @@ specs:
           only the opportunities at that stage, with every input opportunity
           appearing in exactly one column. The input array is not mutated.
         errors: []
+        totality: One column per requested stage, and every opportunity lands in exactly
+          one of them or none. A stage with no opportunities is an empty column,
+          which is what the empty state renders from.
       "toInboxRows(scored: readonly { opportunity: Opportunity; score: Score }[], seenIds: readonly string[]): readonly InboxRow[]":
         kind: query
         precondition: scored is the output of rankOpportunities and seenIds lists
@@ -1050,12 +1152,18 @@ specs:
         postcondition: Returns the rows in the order given, marking isNew true exactly
           for opportunities whose id is absent from seenIds.
         errors: []
+        totality: A total map over the input; membership in seenIds is a boolean for
+          every id. Order is preserved rather than computed, so there is nothing
+          to resolve.
       "emptyStateFor(surface: Surface): EmptyState":
         kind: query
         precondition: surface is one of the declared surfaces.
         postcondition: Returns a headline and a concrete next action for that surface.
           Never returns sample or placeholder content.
         errors: []
+        totality: Surface is a closed union and the table covers every member. Adding a
+          surface without its entry fails to typecheck, so the mapping cannot
+          silently become partial.
       "PipelineBoard(props: DashboardProps): JSX.Element":
         kind: query
         precondition: props.opportunities is defined, possibly empty.
@@ -1064,6 +1172,10 @@ specs:
           onAdvance with the opportunity id and target stage when a card is
           moved.
         errors: []
+        totality: "A render is total by construction: every branch — populated, empty,
+          loading, error — returns an element, and failure states are rendered
+          rather than thrown. ART-02 keeps errors as values, so a component
+          receives one and draws it."
       "ScoutInbox(props: DashboardProps): JSX.Element":
         kind: query
         precondition: props.profile may be null, in which case scoring is not shown.
@@ -1071,6 +1183,9 @@ specs:
           visible, shows per-source outcomes after a run, and calls onScout when
           a run is requested.
         errors: []
+        totality: "A render is total by construction: every branch returns an element,
+          and per-source failures arrive as values to display rather than as
+          throws."
       "OpportunityDetail(props: { opportunity: Opportunity; score: Score | null }): JSX.Element":
         kind: query
         precondition: opportunity is a stored opportunity.
@@ -1078,6 +1193,9 @@ specs:
           its score reasons when a score is supplied. Renders a field's absence
           explicitly rather than substituting a value.
         errors: []
+        totality: A render is total by construction. A null score and an absent field
+          are both rendered explicitly, so there is no input for which there is
+          nothing to draw.
       "ProfileForm(props: { profile: Profile | null; onSave: (profile: Profile) => void }): JSX.Element":
         kind: query
         precondition: profile may be null when none has been saved.
@@ -1085,12 +1203,17 @@ specs:
           exclusions for editing, and calls onSave with the edited profile. With
           a null profile it renders empty fields, never invented defaults.
         errors: []
+        totality: A render is total by construction. A null profile renders the empty
+          form, which is the branch that would otherwise be an absence.
       "App(props: DashboardProps): JSX.Element":
         kind: query
         precondition: The store has been loaded.
         postcondition: Renders the four surfaces behind navigation, each reachable, with
           no navigation target left unresolved.
         errors: []
+        totality: A render is total by construction, and every navigation target
+          resolves to one of the four surfaces. There is no route that leaves
+          nothing rendered.
     design:
       system: design.system.yaml
       contract: design/DESIGN.md
@@ -1294,9 +1417,11 @@ tasks:
       - test/store.test.js
     execution_gate:
       command: node --test test/store.test.js
-      success_criteria: Exit code 0 with one passing test per verification scenario,
-        using node:sqlite against ':memory:' or a temporary file. No test leaves
-        a database behind.
+      success_criteria: Exit code 0 with one passing test per verification scenario.
+        The sqlite backend is exercised against ':memory:' or a temporary file;
+        the browser backend is exercised by stubbing the storage API the module
+        looks for, so both paths are tested from node. No test leaves a database
+        behind.
       timeout_minutes: 10
     budget:
       max_attempts: 2

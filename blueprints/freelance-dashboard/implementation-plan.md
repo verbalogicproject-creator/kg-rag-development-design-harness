@@ -5,7 +5,7 @@
 **Audience** A solo developer starting to freelance, working offline on their own machine  
 **Scope class** architectural  
 **Format** aose-blueprint/v2  
-**Generated** 2026-09-05T13:22:43.308Z
+**Generated** 2026-09-05T15:06:02.982Z
 
 ## Success criteria
 
@@ -48,7 +48,7 @@ Build order (dependencies first): `core/opportunity` → `core/match` → `core/
 | `core/match` | Score an opportunity against a freelancer profile and explain the score. Pure; no I/O. | `core/opportunity` | `scoreOpportunity`, `rankOpportunities` |
 | `core/parse` | Turn a pasted job post into an opportunity, naming every field it could not read. Pure; no I/O. | `core/opportunity` | `parsePost`, `parseRate`, `parseBudget`, `extractSkills` |
 | `infra/feeds` | Fetch allowlisted job feeds through an injected fetch, normalize them to opportunities and deduplicate. | `core/opportunity`, `core/parse` | `SOURCES`, `runScout`, `normalizeItem`, `dedupeKey` |
-| `infra/store` | SQLite persistence for opportunities, profile and scout history, with schema migration. | `core/opportunity` | `openStore`, `saveOpportunity`, `listOpportunities`, `saveProfile`, `loadProfile` |
+| `infra/store` | Persistence for opportunities, profile and scout history, with schema migration, over whichever backend the host offers — node:sqlite, browser storage, or memory. | `core/opportunity` | `openStore`, `saveOpportunity`, `listOpportunities`, `saveProfile`, `loadProfile` |
 | `ui/client` | The dashboard surfaces. Pipeline board, scout inbox, opportunity detail, profile. | `core/opportunity`, `core/match`, `infra/store` | `App`, `PipelineBoard`, `ScoutInbox`, `OpportunityDetail`, `ProfileForm`, `toBoardColumns`, `toInboxRows`, `emptyStateFor` |
 
 ## Decisions
@@ -70,6 +70,9 @@ Build order (dependencies first): `core/opportunity` → `core/match` → `core/
 - **DEC-05** The surface is built against a frozen L.S.Design handoff rather than styled during implementation.
   - Why: A human approves the visual direction on real screens once, and the builder implements what was approved instead of relitigating it, which is what keeps a token system from drifting.
   - Rejected: Style during implementation; Apply a component library default theme
+- **DEC-06** The store selects a persistence backend from its host and reaches the node-only one through a dynamic import, so one module serves both the CLI and the browser surface.
+  - Why: ui/client is browser-targeted and depends on infra/store. While the store declared "esm-only, node24" the shipped bundle opened with `import{DatabaseSync}from"node:sqlite"` and no browser could load it — and neither gate could see it, because a bundler externalises specifiers it does not recognise and the unit tests run in node, where that module is real. A static import is resolved by a bundler whether or not it ever executes, so the host check has to guard an `import()`, not an `if`. Keeping one module behind one contract also keeps ART-05 honest: every backend here is local, and the surface cannot quietly acquire a hosted one.
+  - Rejected: Keep the store node-only and give ui/client its own browser store — two implementations of one contract, drifting apart, with migrations to write twice; Put a port in ui/client and inject the node store — correct, but it moves the host decision into the surface and leaves the browser case unimplemented; Persist nothing in the browser and treat the CLI as the only real client — contradicts the premise that the dashboard is the product
 
 ## Domain `core/opportunity`
 
@@ -370,11 +373,14 @@ Gate: `node --test test/feeds.test.js` — Exit code 0 with one passing test per
 
 | Id | Requirement (EARS) | Verified by |
 | --- | --- | --- |
-| REQ-01 | WHEN the store is opened against a new file THE SYSTEM SHALL create its schema and record the schema version. | SC-01 |
-| REQ-02 | WHEN the store is opened against a file from an older schema version THE SYSTEM SHALL migrate it forward without losing existing rows. | SC-02 |
+| REQ-01 | WHEN the store is opened against a new location THE SYSTEM SHALL create its schema and record the schema version. | SC-01 |
+| REQ-02 | WHEN the store is opened against a location from an older schema version THE SYSTEM SHALL migrate it forward without losing existing rows. | SC-02 |
 | REQ-03 | WHEN an opportunity is saved twice THE SYSTEM SHALL update the existing row rather than creating a duplicate. | SC-03 |
 | REQ-04 | WHEN opportunities are listed by stage THE SYSTEM SHALL return only that stage, most recently updated first. | SC-04 |
-| REQ-05 | IF a write fails THE SYSTEM SHALL leave the database unchanged and return a discriminated error. | SC-05 |
+| REQ-05 | IF a write fails THE SYSTEM SHALL leave the store unchanged and return a discriminated error. | SC-05 |
+| REQ-06 | WHERE the module is loaded by a bundler THE SYSTEM SHALL carry no static import of a host-only module, so a browser build contains no unresolvable specifier. | SC-06 |
+| REQ-07 | WHEN opportunities are listed by stage THE SYSTEM SHALL resolve the query through an index rather than scanning every row. | SC-07 |
+| REQ-08 | WHEN a browser-backed store is reopened at the same location THE SYSTEM SHALL return the rows written before it was closed. | SC-08 |
 
 ### Types
 
@@ -382,10 +388,17 @@ Gate: `node --test test/feeds.test.js` — Exit code 0 with one passing test per
 import type { Opportunity, Stage, Result } from '../core/opportunity';
 import type { Profile } from '../core/match';
 
-type StoreError = 'NOT_FOUND' | 'WRITE_FAILED' | 'MIGRATION_FAILED';
+type StoreError = 'NOT_FOUND' | 'WRITE_FAILED' | 'MIGRATION_FAILED' | 'NO_BACKEND';
+
+/* Which host the module found at load time. Reported rather than assumed, so
+   a caller can say which store it is talking to instead of guessing. */
+type Backend = 'sqlite' | 'web' | 'memory';
 
 interface Store {
-  readonly path: string;
+  /* Opaque to this contract: a file path under node, a database name in a
+     browser, ':memory:' anywhere for a store that persists nothing. */
+  readonly location: string;
+  readonly backend: Backend;
   readonly schemaVersion: number;
   close(): void;
 }
@@ -393,17 +406,17 @@ interface Store {
 
 ### Contracts
 
-- `openStore(path: string): Result<Store, StoreError>` (transition)
-  - pre: path is a writable file path or the string ':memory:'.
-  - post: Returns an open store whose schema is at the current version, creating or migrating it as needed. Existing rows survive a migration. Returns MIGRATION_FAILED without altering the file when migration cannot complete.
-  - errors: MIGRATION_FAILED, WRITE_FAILED
+- `openStore(location: string): Result<Store, StoreError>` (transition)
+  - pre: location is a writable file path, a browser database name, or the string ':memory:'.
+  - post: Selects a backend from the host — node:sqlite under node, a browser storage API in a browser, in-memory for ':memory:' — and returns an open store whose schema is at the current version, creating or migrating it as needed. Existing rows survive a migration. Returns MIGRATION_FAILED without altering the store when migration cannot complete, and NO_BACKEND when the host offers no persistence the module can use. The node backend is reached only through a dynamic import inside a host check, so a browser bundle never carries the specifier.
+  - errors: MIGRATION_FAILED, WRITE_FAILED, NO_BACKEND
 - `saveOpportunity(store: Store, opportunity: Opportunity): Result<Opportunity, StoreError>` (transition)
   - pre: The store is open and the opportunity has an id.
-  - post: Inserts or updates the row keyed by id and returns the stored opportunity. Writing the same opportunity twice leaves exactly one row. On failure the database is unchanged.
+  - post: Inserts or updates the row keyed by id and returns the stored opportunity. Writing the same opportunity twice leaves exactly one row. On failure the store is unchanged.
   - errors: WRITE_FAILED
 - `listOpportunities(store: Store, stage: Stage | null): Result<readonly Opportunity[], StoreError>` (transition)
   - pre: The store is open.
-  - post: Returns opportunities at the requested stage, or all of them when stage is null, ordered by last update descending.
+  - post: Returns opportunities at the requested stage, or all of them when stage is null, ordered by last update descending. The stage query is served by an index on (stage, updated_at), not a full scan.
   - errors: NOT_FOUND
 - `saveProfile(store: Store, profile: Profile): Result<Profile, StoreError>` (transition)
   - pre: The store is open.
@@ -420,17 +433,20 @@ Suite: `test/store.test.js`
 
 | Id | Given | When | Then | Test name |
 | --- | --- | --- | --- | --- |
-| SC-01 | a path with no database | the store is opened | the schema is created at the current version | `creates the schema on first open` |
-| SC-02 | a database written at an older schema version | the store is opened | it migrates forward and the existing rows survive | `migrates an older database without losing rows` |
+| SC-01 | a location with no store | the store is opened | the schema is created at the current version | `creates the schema on first open` |
+| SC-02 | a store written at an older schema version | the store is opened | it migrates forward and the existing rows survive | `migrates an older store without losing rows` |
 | SC-03 | an opportunity saved twice | it is listed | exactly one row is returned | `saving the same opportunity twice leaves one row` |
 | SC-04 | opportunities across several stages | one stage is listed | only that stage is returned, most recent first | `lists a single stage ordered by recency` |
-| SC-05 | a store whose write fails | a save is attempted | WRITE_FAILED is returned and the database is unchanged | `a failed write leaves the database untouched` |
+| SC-05 | a store whose write fails | a save is attempted | WRITE_FAILED is returned and the store is unchanged | `a failed write leaves the store untouched` |
+| SC-06 | the module's own source text | its top-level import statements are read | none of them names a node: module, because a bundler resolves static imports whether or not they ever run | `the module carries no static host-only import` |
+| SC-07 | a sqlite-backed store holding opportunities across stages | the query plan for a listing by stage is examined | the plan uses an index and does not scan the table | `listing by stage is served by an index` |
+| SC-08 | a browser-backed store, with the browser storage API stubbed | rows are written, the store is closed and reopened at the same location | the rows written before the close are returned | `a browser store survives being closed and reopened` |
 
 ### Task
 
 Deliverables: `src/infra/store.js`, `test/store.test.js`
 
-Gate: `node --test test/store.test.js` — Exit code 0 with one passing test per verification scenario, using node:sqlite against ':memory:' or a temporary file. No test leaves a database behind.
+Gate: `node --test test/store.test.js` — Exit code 0 with one passing test per verification scenario. The sqlite backend is exercised against ':memory:' or a temporary file; the browser backend is exercised by stubbing the storage API the module looks for, so both paths are tested from node. No test leaves a database behind.
 
 ## Domain `ui/client`
 

@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, cpSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import YAML from 'yaml';
-import { Harness, matchBlocked, isSettledFailure } from '../src/harness.ts';
+import { Harness, matchBlocked, isSettledFailure, readyDomains } from '../src/harness.ts';
 import { Ledger } from '../src/ledger.ts';
 import { renderMarkdown, buildBlueprint } from '../src/export.ts';
 import type { FetchLike } from '../src/research.ts';
@@ -197,9 +197,11 @@ test('a domain cannot be dispatched before the domain it depends on has passed',
   harness.review('tictactoe');
   harness.approve('tictactoe', 'owner');
 
+  // The refusal now names every blocked domain and the dependency each waits
+  // on, because a parallel scheduler can be stalled by more than one thing.
   await assert.rejects(
     () => harness.dispatch('tictactoe', { domain: 'ui/client', adapter: 'fake' }),
-    /depends on "core\/engine", which has not passed its gate/,
+    /Nothing can be dispatched: ui\/client \(waits on core\/engine\)/,
   );
 });
 
@@ -417,4 +419,90 @@ test('an approval covers the runs it was in force for, not the ones after it lap
   // And the boundary: an approval covers a run that starts at the same instant.
   assert.equal(ledger.approvalInForceAt('p', '2026-01-02')?.digest, 'first');
   ledger.close();
+});
+
+test('independent domains run together and dependent ones still wait', async () => {
+  /* The DAG said core/match, core/parse and infra/store could all start once
+   * core/opportunity passed, and dispatch ran them in single file anyway: 57
+   * minutes of wall clock against a 34-minute critical path on the real
+   * dashboard. Parallelism must not weaken the ordering guarantee, which is
+   * what this asserts — the dependent domain still starts after its upstream
+   * finished, never alongside it. */
+  const harness = await approved();
+  const started: string[] = [];
+  const finished: string[] = [];
+
+  await harness.dispatch('tictactoe', {
+    adapter: 'fake', maxAttempts: 1, fixtureRoot: FIXTURES, parallel: 4,
+    onEvent: (line) => {
+      const begun = /^\[fake\] (\S+) attempt 1/.exec(line);
+      if (begun) started.push(begun[1]);
+      if (/GATE PASS/.test(line)) finished.push(/^\[fake\] (\S+)/.exec(line)![1]);
+    },
+  });
+
+  assert.deepEqual(finished.sort(), ['core/engine', 'ui/client'], 'both domains passed');
+  // ui/client depends on core/engine, so it cannot have started before that
+  // one finished — the whole point of the ordering the scheduler preserves.
+  assert.ok(started.indexOf('ui/client') > started.indexOf('core/engine'));
+  assert.equal(finished[0], 'core/engine', 'the upstream finished first');
+});
+
+test('a wave is announced only when more than one domain runs at once', async () => {
+  // A run that fans out should say so; a run that cannot must not claim to.
+  const harness = await approved();
+  const lines: string[] = [];
+  await harness.dispatch('tictactoe', {
+    adapter: 'fake', maxAttempts: 1, fixtureRoot: FIXTURES, parallel: 4,
+    onEvent: (line) => lines.push(line),
+  });
+  // tictactoe is a chain, so nothing can ever run in parallel here.
+  assert.equal(lines.some((l) => /in parallel/.test(l)), false,
+    'a chain has no independent domains to fan out');
+});
+
+test('every domain whose dependencies have passed is ready at once', () => {
+  /* The fan-out the scheduler exists for, which no fixture blueprint has:
+   * the real dashboard's core/match, core/parse and infra/store all wait only
+   * on core/opportunity, and running them in single file cost 23 of 57
+   * minutes. */
+  const deps: Record<string, string[]> = {
+    'core/opportunity': [],
+    'core/match': ['core/opportunity'],
+    'core/parse': ['core/opportunity'],
+    'infra/store': ['core/opportunity'],
+    'infra/feeds': ['core/opportunity', 'core/parse'],
+    'ui/client': ['core/opportunity', 'core/match', 'infra/store'],
+  };
+  const depsOf = (d: string) => deps[d] ?? [];
+  const all = Object.keys(deps);
+
+  // Nothing passed: only the root can start.
+  assert.deepEqual(readyDomains(all, depsOf, () => false), ['core/opportunity']);
+
+  // The root passed: three become ready together — the whole point.
+  const rootDone = new Set(['core/opportunity']);
+  assert.deepEqual(
+    readyDomains(all.filter((d) => !rootDone.has(d)), depsOf, (d) => rootDone.has(d)),
+    ['core/match', 'core/parse', 'infra/store'],
+  );
+
+  // A domain with a half-met dependency list must not slip through.
+  const partly = new Set(['core/opportunity', 'core/match']);
+  const ready = readyDomains(['ui/client', 'infra/feeds'], depsOf, (d) => partly.has(d));
+  assert.deepEqual(ready, [], 'ui/client still needs infra/store; infra/feeds still needs core/parse');
+
+  // And once the last dependency lands, it is ready.
+  const enough = new Set(['core/opportunity', 'core/match', 'infra/store']);
+  assert.deepEqual(readyDomains(['ui/client'], depsOf, (d) => enough.has(d)), ['ui/client']);
+});
+
+test('a wave never exceeds the parallelism it was given', () => {
+  const deps: Record<string, string[]> = { a: [], b: [], c: [], d: [] };
+  const ready = readyDomains(['a', 'b', 'c', 'd'], (x) => deps[x], () => true);
+  assert.equal(ready.length, 4);
+  // The scheduler takes the first `parallel` of them; the rest wait for the
+  // next wave rather than all launching at once.
+  assert.deepEqual(ready.slice(0, 2), ['a', 'b']);
+  assert.deepEqual(ready.slice(0, 1), ['a'], 'parallel 1 is the sequential behaviour that was there before');
 });
