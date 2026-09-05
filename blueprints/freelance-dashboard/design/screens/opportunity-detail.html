@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Opportunity detail</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="screen.css">
+</head>
+<body>
+<!--
+  The editorial counterpoint: this surface slows down and reads like a document.
+  The signature fit object appears here in its expanded form, showing the
+  reasons behind the score. A field with no value is rendered as absent rather
+  than filled with a plausible substitute (ART-08).
+-->
+<div class="shell">
+  <header class="topbar">
+    <h1 class="wordmark">Pipeline</h1>
+    <nav class="nav" aria-label="Surfaces">
+      <a href="pipeline-board.html">Board</a>
+      <a href="scout-inbox.html">Inbox</a>
+      <a href="profile.html">Profile</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="document">
+      <div>
+        <h2>Postgres query tuning, read-replica cutover</h2>
+        <p class="tally">remotive · first seen 6 days ago</p>
+      </div>
+
+      <section aria-label="Stage history">
+        <h3>Stage</h3>
+        <div class="spine">
+          <div class="stage done"><span class="dot"></span>lead<br>6d ago</div>
+          <div class="stage done"><span class="dot"></span>drafting<br>2d ago</div>
+          <div class="stage"><span class="dot"></span>sent</div>
+          <div class="stage"><span class="dot"></span>negotiating</div>
+          <div class="stage"><span class="dot"></span>won</div>
+        </div>
+        <button type="button" class="action">Advance to sent</button>
+      </section>
+
+      <section aria-label="Details">
+        <h3>Details</h3>
+        <dl class="facts">
+          <div><dt>Budget</dt><dd>$6,400</dd></div>
+          <div><dt>Rate</dt><dd>$80/hr</dd></div>
+          <div><dt>Skills</dt><dd>postgres, rails, sidekiq</dd></div>
+          <div><dt>Duration</dt><dd class="absent">not stated in the post</dd></div>
+          <div><dt>Client</dt><dd class="absent">not stated in the post</dd></div>
+        </dl>
+      </section>
+
+      <section aria-label="Fit score">
+        <h3>Fit</h3>
+        <p><span class="fit"><span class="bar"><span style="inline-size: 91%"></span></span>91</span></p>
+        <ul class="reasons">
+          <li><span>rate above your minimum of $65/hr</span><span class="delta">+30</span></li>
+          <li><span>postgres, rails match your skills</span><span class="delta">+40</span></li>
+          <li><span>remote, no timezone constraint</span><span class="delta">+21</span></li>
+          <li><span>agency posting, not direct client</span><span class="delta">−10</span></li>
+        </ul>
+      </section>
+    </div>
+  </main>
+</div>
+</body>
+</html>

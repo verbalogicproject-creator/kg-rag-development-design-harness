@@ -1,0 +1,428 @@
+/*
+  screen.css — shared structure for the token-driven screens.
+
+  Every colour, size, radius and duration resolves to a --ls-* token. Structural
+  values are unitless, fractional or character-relative so nothing here is a
+  magic pixel. The one exception is a 1px hairline, which the design system
+  declares as an allowed literal because a sub-pixel border is not a scale step.
+
+  Direction: precise-technical, with editorial-restraint as the counterpoint.
+  The board and the inbox are dense because the work is comparing numbers; the
+  detail and profile surfaces slow down and read like a document.
+*/
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ls-color-background);
+  color: var(--ls-color-content);
+  font-family: var(--ls-font-body);
+  font-size: var(--ls-text-body);
+  line-height: var(--ls-leading-body);
+}
+
+/* ── shell ─────────────────────────────────────────────────────────── */
+
+.shell { display: flex; flex-direction: column; min-height: 100vh; }
+
+.topbar {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ls-space-md);
+  padding: var(--ls-space-sm) var(--ls-space-md);
+  border-block-end: 1px solid var(--ls-color-border);
+  background: var(--ls-color-surface);
+}
+
+.wordmark {
+  font-family: var(--ls-font-h3);
+  font-size: var(--ls-text-h3);
+  font-weight: var(--ls-weight-h3);
+  margin: 0;
+}
+
+.nav { display: flex; gap: var(--ls-space-sm); margin-inline-start: auto; }
+
+.nav a {
+  color: var(--ls-color-content-muted);
+  text-decoration: none;
+  font-size: var(--ls-text-label);
+  font-weight: var(--ls-weight-label);
+  padding-block: var(--ls-space-2xs);
+  border-block-end: 1px solid transparent;
+}
+.nav a[aria-current="page"] {
+  color: var(--ls-color-content);
+  border-block-end-color: var(--ls-color-content);
+}
+
+main { padding: var(--ls-space-md); flex: 1; }
+
+.page-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ls-space-sm);
+  margin-block-end: var(--ls-space-md);
+}
+.page-head h2 {
+  font-family: var(--ls-font-h2);
+  font-size: var(--ls-text-h2);
+  font-weight: var(--ls-weight-h2);
+  line-height: var(--ls-leading-h2);
+  margin: 0;
+}
+.tally {
+  font-family: var(--ls-font-mono);
+  font-size: var(--ls-text-caption);
+  color: var(--ls-color-content-muted);
+  margin-inline-start: auto;
+}
+
+/* ── the one accent per surface ────────────────────────────────────── */
+
+.action {
+  font: inherit;
+  font-size: var(--ls-text-label);
+  font-weight: var(--ls-weight-label);
+  background: var(--ls-color-accent);
+  color: var(--ls-color-on-accent);
+  border: 1px solid transparent;
+  border-radius: var(--ls-radius-md);
+  padding: var(--ls-space-xs) var(--ls-space-sm);
+  cursor: pointer;
+}
+.action.quiet {
+  background: transparent;
+  color: var(--ls-color-content);
+  border-color: var(--ls-color-border-strong);
+}
+
+:is(a, button, input, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--ls-color-focus);
+  outline-offset: 2px;
+}
+
+/* ── board ─────────────────────────────────────────────────────────── */
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18ch, 1fr));
+  gap: var(--ls-space-sm);
+  align-items: start;
+}
+
+.column { display: flex; flex-direction: column; gap: var(--ls-space-xs); min-width: 0; }
+
+/* A hint inside a column reads from the start edge. `.tally` pushes itself to
+   the end, which is right in a page header and wrong here. */
+.column .tally { margin-inline-start: 0; }
+
+.column-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ls-space-2xs);
+  padding-block-end: var(--ls-space-2xs);
+  border-block-end: 1px solid var(--ls-color-border-strong);
+}
+.column-head h3 {
+  margin: 0;
+  font-family: var(--ls-font-label);
+  font-size: var(--ls-text-label);
+  font-weight: var(--ls-weight-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.column-head .count {
+  margin-inline-start: auto;
+  font-family: var(--ls-font-mono);
+  font-size: var(--ls-text-caption);
+  color: var(--ls-color-content-muted);
+}
+
+.card {
+  background: var(--ls-card-background);
+  border: 1px solid var(--ls-card-border-color);
+  border-radius: var(--ls-card-border-radius);
+  padding: var(--ls-space-xs);
+  display: grid;
+  gap: var(--ls-space-2xs);
+  text-align: start;
+  font: inherit;
+  color: inherit;
+  cursor: grab;
+  width: 100%;
+}
+.card .title {
+  font-size: var(--ls-text-body-small);
+  line-height: var(--ls-leading-body-small);
+}
+.card .meta {
+  display: flex;
+  align-items: center;
+  gap: var(--ls-space-2xs);
+  font-family: var(--ls-font-mono);
+  font-size: var(--ls-text-caption);
+  color: var(--ls-color-content-muted);
+}
+.card .money { margin-inline-end: auto; }
+
+/* ── the signature: one fit-score object, everywhere ───────────────── */
+
+.fit {
+  display: inline-flex;
+  align-items: center;
+  font-variant-numeric: tabular-nums;
+  gap: var(--ls-space-2xs);
+  font-family: var(--ls-font-mono);
+  font-size: var(--ls-text-caption);
+  color: var(--ls-color-content);
+  border: 1px solid var(--ls-color-border);
+  border-radius: var(--ls-radius-sm);
+  padding-inline: var(--ls-space-2xs);
+}
+.fit .bar {
+  display: inline-block;
+  inline-size: 6ch;
+  block-size: var(--ls-space-xs);
+  background: var(--ls-color-border);
+  border-radius: var(--ls-radius-full);
+  overflow: hidden;
+}
+.fit .bar span {
+  display: block;
+  block-size: 100%;
+  background: var(--ls-color-primary);
+}
+.fit.low .bar span { background: var(--ls-color-border-strong); }
+
+/* Reasons belong to the row above them. Floating between two rows reads as
+   ambiguous, so they are indented and hung off a rule that ties them to their
+   listing. */
+.reasons {
+  display: grid;
+  gap: var(--ls-space-2xs);
+  font-family: var(--ls-font-mono);
+  font-size: var(--ls-text-caption);
+  color: var(--ls-color-content-muted);
+  list-style: none;
+  /* Longhands last: a `margin: 0` shorthand after these would silently undo
+     the indent that ties these reasons to the row above them. */
+  margin-block: 0;
+  margin-inline: var(--ls-space-md) 0;
+  padding-block: var(--ls-space-2xs);
+  padding-inline: var(--ls-space-sm) 0;
+  border-inline-start: 1px solid var(--ls-color-border-strong);
+}
+.reasons li { display: flex; gap: var(--ls-space-xs); }
+.reasons .delta {
+  margin-inline-start: auto;
+  color: var(--ls-color-content);
+  font-variant-numeric: tabular-nums;
+}
+/* In the inbox the reasons hang under one row; in the detail document they are
+   the section's own content and need no rule. */
+.document .reasons { margin-inline: 0; padding-inline: 0; border-inline-start: 0; }
+
+/* ── empty state: the working surface, not a placeholder ───────────── */
+
+/* The empty board's working surface sits above the columns, not wedged into
+   one 18ch wide. The promise is that the tool is right there; a cramped column
+   breaks that promise while appearing to keep it. */
+.empty {
+  max-width: 60ch;
+  margin-block-end: var(--ls-space-md);
+  border: 1px dashed var(--ls-color-border-strong);
+  border-radius: var(--ls-radius-md);
+  padding: var(--ls-space-sm);
+  display: grid;
+  gap: var(--ls-space-xs);
+  background: var(--ls-color-surface-raised);
+}
+.empty p {
+  margin: 0;
+  font-size: var(--ls-text-body-small);
+  color: var(--ls-color-content-muted);
+}
+.empty textarea {
+  font: inherit;
+  font-size: var(--ls-text-body-small);
+  background: var(--ls-input-background);
+  color: var(--ls-input-color);
+  border: 1px solid var(--ls-input-border-color);
+  border-radius: var(--ls-input-border-radius);
+  padding: var(--ls-space-xs);
+  min-block-size: var(--ls-space-lg);
+  resize: vertical;
+}
+.empty .row { display: flex; align-items: center; gap: var(--ls-space-xs); flex-wrap: wrap; }
+.empty .row .action { white-space: nowrap; }
+.empty .row .or {
+  font-size: var(--ls-text-caption);
+  color: var(--ls-color-content-muted);
+}
+
+/* ── inbox ─────────────────────────────────────────────────────────── */
+
+.inbox { display: grid; gap: var(--ls-space-2xs); }
+
+.row-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: var(--ls-space-sm);
+  padding: var(--ls-space-xs);
+  border: 1px solid var(--ls-color-border);
+  border-radius: var(--ls-radius-md);
+  background: var(--ls-color-surface);
+  text-align: start;
+  font: inherit;
+  color: inherit;
+  width: 100%;
+  cursor: pointer;
+}
+.row-item .headline { display: grid; gap: var(--ls-space-2xs); min-width: 0; }
+.row-item .name {
+  font-size: var(--ls-text-body-small);
+  line-height: var(--ls-leading-body-small);
+}
+.row-item .provenance {
+  font-family: var(--ls-font-mono);
+  font-size: var(--ls-text-caption);
+  color: var(--ls-color-content-muted);
+}
+.row-item .money {
+  font-family: var(--ls-font-mono);
+  font-size: var(--ls-text-caption);
+}
+.badge-new {
+  font-family: var(--ls-font-mono);
+  font-size: var(--ls-text-caption);
+  color: var(--ls-color-primary);
+  border: 1px solid var(--ls-color-primary);
+  border-radius: var(--ls-radius-full);
+  padding-inline: var(--ls-space-2xs);
+}
+
+.sources {
+  display: grid;
+  gap: var(--ls-space-2xs);
+  margin-block-start: var(--ls-space-md);
+  padding-block-start: var(--ls-space-xs);
+  border-block-start: 1px solid var(--ls-color-border);
+  font-family: var(--ls-font-mono);
+  font-size: var(--ls-text-caption);
+  color: var(--ls-color-content-muted);
+}
+.sources div { display: flex; gap: var(--ls-space-xs); }
+.sources .ok { color: var(--ls-color-success); }
+.sources .bad { color: var(--ls-color-danger); }
+
+/* ── detail and profile: the editorial counterpoint ────────────────── */
+
+.document { max-width: 68ch; display: grid; gap: var(--ls-space-md); }
+.document h2 {
+  font-family: var(--ls-font-h1);
+  font-size: var(--ls-text-h1);
+  font-weight: var(--ls-weight-h1);
+  line-height: var(--ls-leading-h1);
+  letter-spacing: var(--ls-tracking-h1);
+  margin: 0;
+}
+.document section { display: grid; gap: var(--ls-space-xs); }
+.document h3 {
+  margin: 0;
+  font-family: var(--ls-font-label);
+  font-size: var(--ls-text-label);
+  font-weight: var(--ls-weight-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ls-color-content-muted);
+}
+
+.facts { display: grid; gap: var(--ls-space-2xs); margin: 0; }
+.facts div { display: flex; gap: var(--ls-space-sm); }
+.facts dt {
+  inline-size: 12ch;
+  color: var(--ls-color-content-muted);
+  font-size: var(--ls-text-body-small);
+}
+.facts dd {
+  margin: 0;
+  font-family: var(--ls-font-mono);
+  font-size: var(--ls-text-body-small);
+}
+.facts .absent { color: var(--ls-color-content-muted); font-style: italic; }
+
+.spine { display: flex; align-items: flex-start; gap: 0; }
+.spine .stage {
+  display: grid;
+  gap: var(--ls-space-2xs);
+  flex: 1;
+  font-family: var(--ls-font-mono);
+  font-size: var(--ls-text-caption);
+  color: var(--ls-color-content-muted);
+}
+.spine .dot {
+  inline-size: 100%;
+  block-size: var(--ls-space-2xs);
+  background: var(--ls-color-border);
+  border-radius: var(--ls-radius-full);
+}
+.spine .stage.done .dot { background: var(--ls-color-primary); }
+.spine .stage.done { color: var(--ls-color-content); }
+
+.field { display: grid; gap: var(--ls-space-2xs); }
+.field label {
+  font-size: var(--ls-text-label);
+  font-weight: var(--ls-weight-label);
+}
+.field input {
+  font: inherit;
+  font-size: var(--ls-text-body-small);
+  background: var(--ls-input-background);
+  color: var(--ls-input-color);
+  border: 1px solid var(--ls-input-border-color);
+  border-radius: var(--ls-input-border-radius);
+  padding: var(--ls-space-xs);
+}
+.field .hint {
+  font-size: var(--ls-text-caption);
+  color: var(--ls-color-content-muted);
+}
+
+/* A label that must exist for assistive technology but not for sighted layout. */
+.visually-hidden-label {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── triage: the funnel from inbox to board ────────────────────────── */
+
+/* An inbox without verbs is a report. Two per listing — promote it, or stop
+   seeing it — and both stay quiet, because the accent belongs to the one
+   action that fills the surface rather than to every row on it. */
+.triage {
+  display: flex;
+  align-items: center;
+  gap: var(--ls-space-xs);
+  margin-inline-start: var(--ls-space-md);
+  padding-inline-start: var(--ls-space-sm);
+  padding-block-end: var(--ls-space-2xs);
+  border-inline-start: 1px solid var(--ls-color-border-strong);
+}
+.link {
+  font: inherit;
+  font-size: var(--ls-text-caption);
+  font-family: var(--ls-font-mono);
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--ls-color-content-muted);
+  text-decoration: underline;
+  cursor: pointer;
+}

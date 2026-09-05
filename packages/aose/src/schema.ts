@@ -264,6 +264,12 @@ export const DesignScalesSchema = z.object({
     easings: z.record(nonEmpty, nonEmpty).default({}),
     reduced_motion: z.enum(['required', 'optional']).default('required'),
   }),
+  /* Border widths and letter-spacing are scales too, and the public design.md
+     format has no field for either — so like motion they are declared here and
+     code is checked against this set. Leaving them undeclared is what makes a
+     2px focus ring read as a magic number. */
+  border: z.object({ steps: z.array(nonEmpty).min(1) }).optional(),
+  tracking: z.object({ steps: z.array(nonEmpty).min(1) }).optional(),
 });
 
 export const DesignRequirementSchema = z.object({

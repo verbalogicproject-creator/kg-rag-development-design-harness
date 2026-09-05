@@ -104,6 +104,14 @@ design_system:
       steps: ["0.25rem", "0.5rem", "1rem", "1.5rem", "2.5rem", "4rem", "6rem"]
     radius:
       steps: ["0.25rem", "0.625rem", "1.25rem", "9999px"]
+    border:
+      # A hairline between surfaces, and the focus ring. Neither is a spacing
+      # step, and an undeclared 2px outline reads as a magic number.
+      steps: ["1px", "2px"]
+    tracking:
+      # Optical spacing: display and h1 tighten as they grow; the uppercase
+      # label tracks open so short all-caps words stay legible.
+      steps: ["-0.02em", "-0.01em", "0.06em"]
     motion:
       durations: { instant: "0ms", fast: "120ms", base: "200ms", slow: "320ms" }
       easings:
@@ -168,6 +176,10 @@ design_system:
       ears: WHEN the built surfaces are reviewed against the art direction THE SYSTEM SHALL exhibit no anti_direction item.
       enforcement: review
       verified_by: [DSC-06]
+    - id: DREQ-07
+      ears: WHEN this contract names a colour role THE SYSTEM SHALL define that role in the token file for every declared mode, and SHALL keep the palette within its declared hue budget.
+      enforcement: gate
+      verified_by: [DSC-07]
 
   verification:
     check_suite: design/__checks__/design.test.ts
@@ -203,3 +215,8 @@ design_system:
         when: each entry is scored against the build
         then: no anti_direction item is present, or each present item cites a recorded justification
         test_name: the build exhibits no anti-direction
+      - id: DSC-07
+        given: the contract's declared roles and the generated token file
+        when: each role is resolved in every declared mode and the palette's hues are counted
+        then: every role is defined and the hue count is within budget
+        test_name: the token file provides every role the contract declares

@@ -181,6 +181,88 @@ export function checkContrast(system: DesignSystem['design_system'], tokens: Tok
   };
 }
 
+/** Hue in degrees, and how saturated it is. A near-grey has no hue worth counting. */
+export function hueOf(hex: string): { hue: number; saturation: number } | null {
+  const rgb = parseHex(hex);
+  if (!rgb) return null;
+  const [r, g, b] = rgb.map((c) => c / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const delta = max - min;
+  const lightness = (max + min) / 2;
+  if (delta === 0) return { hue: 0, saturation: 0 };
+  const saturation = delta / (1 - Math.abs(2 * lightness - 1));
+  let hue: number;
+  if (max === r) hue = ((g - b) / delta) % 6;
+  else if (max === g) hue = (b - r) / delta + 2;
+  else hue = (r - g) / delta + 4;
+  hue = Math.round(hue * 60);
+  return { hue: hue < 0 ? hue + 360 : hue, saturation };
+}
+
+/**
+ * DSC-07 — the contract and the token file agree.
+ *
+ * The gap this exists for: `design.system.yaml` can name a colour role, or a
+ * whole scale, that `tokens.css` never defines. Nothing caught that before, so
+ * a contract could promise more than the tokens could deliver and every other
+ * check would still pass. It also counts hues against `palette.max_hues`,
+ * because a budget nobody counts is not a budget.
+ *
+ * Motion is deliberately exempt: the public design.md format has no motion
+ * field, so durations live in the contract and are checked against it rather
+ * than resolved through a custom property. That is a real limit of the format,
+ * and stating it here is better than a rule that would always fail.
+ */
+export function checkPaletteCoverage(
+  system: DesignSystem['design_system'],
+  tokens: TokenSets,
+): CheckResult {
+  const scenario = system.verification.scenarios.find((s) => s.id === 'DSC-07');
+  const findings: string[] = [];
+  const roles = [...new Set([
+    ...system.palette.neutral_ramp,
+    ...system.palette.semantic,
+    ...system.accessibility.contrast_pairs.flatMap((p) => [p.foreground, p.background]),
+  ])];
+
+  const modes: ('light' | 'dark')[] = system.palette.modes as ('light' | 'dark')[];
+  for (const role of roles) {
+    for (const mode of modes) {
+      if (!colourFor(tokens[mode], role)) {
+        findings.push(`${mode}: the contract names role "${role}" but tokens.css does not define it`);
+      }
+    }
+  }
+
+  // Hue budget, counted over the semantic roles in the light set. Greys are not
+  // hues; anything below a modest saturation floor is part of the neutral ramp.
+  const hues: number[] = [];
+  for (const role of system.palette.semantic) {
+    const value = colourFor(tokens.light, role);
+    const parsed = value ? hueOf(value) : null;
+    if (!parsed || parsed.saturation < 0.15) continue;
+    if (!hues.some((h) => Math.min(Math.abs(h - parsed.hue), 360 - Math.abs(h - parsed.hue)) < 30)) {
+      hues.push(parsed.hue);
+    }
+  }
+  if (hues.length > system.palette.max_hues) {
+    findings.push(`palette carries ${hues.length} distinct hues (${hues.sort((a, b) => a - b).join('°, ')}°) against a budget of ${system.palette.max_hues}`);
+  }
+
+  const tokenised = Object.values(system.scales.motion.durations)
+    .filter((d) => [...tokens.light.values()].includes(d)).length;
+
+  return {
+    id: 'DSC-07',
+    test_name: scenario?.test_name ?? 'the token file provides every role the contract declares',
+    status: roles.length === 0 ? 'vacuous' : findings.length ? 'fail' : 'pass',
+    detail: `${roles.length} role(s) checked across ${modes.join(' and ')}, ${hues.length}/${system.palette.max_hues} hue(s) used`
+      + (tokenised === 0 ? '; motion is contract-declared, not tokenised (design.md has no motion field)' : ''),
+    findings,
+  };
+}
+
 const LITERAL_PATTERNS: [string, RegExp][] = [
   ['colour', /#[0-9a-f]{3,8}\b|\brgba?\([^)]*\)|\bhsla?\([^)]*\)|\boklch\([^)]*\)/gi],
   ['length', /(?<![\w-])\d+(?:\.\d+)?(?:px|rem|em)\b/gi],
@@ -225,7 +307,9 @@ export function checkTokenResolution(
     ...system.scales.radius.steps,
     ...Object.values(system.scales.type.steps),
     ...Object.values(system.scales.motion.durations),
-    '0', '0px', '1px', '100%', '9999px',
+    ...(system.scales.border?.steps ?? []),
+    ...(system.scales.tracking?.steps ?? []),
+    '0', '0px', '100%',
   ]);
 
   for (const file of files) {
@@ -268,7 +352,13 @@ export function loadDesignSystem(dir: string, path = 'design.system.yaml'): Desi
  * reported as vacuous rather than passing, so an unbuilt surface can never
  * bank evidence it did not earn.
  */
-export function designCheck(dir: string, searchRoots: string[] = ['src', 'app', 'ui']): DesignReport {
+export function designCheck(
+  dir: string,
+  /* The studio's token-driven screens are real code and are checked as such,
+     alongside wherever a built surface lands. Checking the reference screens is
+     what keeps DSC-01 from being vacuous until the app exists. */
+  searchRoots: string[] = ['design/screens', 'src', 'app', 'ui'],
+): DesignReport {
   const system = loadDesignSystem(dir);
   const tokensPath = join(dir, system.tokens);
   const tokens = existsSync(tokensPath)
@@ -278,6 +368,7 @@ export function designCheck(dir: string, searchRoots: string[] = ['src', 'app', 
   const checks = [
     checkTokenResolution(system, dir, searchRoots),
     checkContrast(system, tokens),
+    checkPaletteCoverage(system, tokens),
   ];
 
   const contrast = checks.find((c) => c.id === 'DSC-02')!;

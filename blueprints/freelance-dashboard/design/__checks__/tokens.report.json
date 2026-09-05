@@ -6,8 +6,8 @@
     {
       "id": "DSC-01",
       "test_name": "every visual value comes from a design token",
-      "status": "vacuous",
-      "detail": "no surface source exists yet — nothing to scan",
+      "status": "pass",
+      "detail": "1 file(s) scanned",
       "findings": []
     },
     {
@@ -15,6 +15,13 @@
       "test_name": "every declared contrast pair meets its target in both modes",
       "status": "pass",
       "detail": "14/14 pair-modes measured across light and dark",
+      "findings": []
+    },
+    {
+      "id": "DSC-07",
+      "test_name": "the token file provides every role the contract declares",
+      "status": "pass",
+      "detail": "15 role(s) checked across light and dark, 2/3 hue(s) used; motion is contract-declared, not tokenised (design.md has no motion field)",
       "findings": []
     }
   ],

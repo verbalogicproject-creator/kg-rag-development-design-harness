@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pipeline board — populated</title>
+<link rel="stylesheet" href="../tokens.css">
+<link rel="stylesheet" href="screen.css">
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <h1 class="wordmark">Pipeline</h1>
+    <nav class="nav" aria-label="Surfaces">
+      <a href="pipeline-board.html" aria-current="page">Board</a>
+      <a href="scout-inbox.html">Inbox</a>
+      <a href="profile.html">Profile</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="page-head">
+      <h2>Opportunities</h2>
+      <button type="button" class="action">Add opportunity</button>
+      <p class="tally">4 open · $12,400 in play</p>
+    </div>
+
+    <div class="board">
+      <section class="column" aria-labelledby="col-lead">
+        <div class="column-head">
+          <h3 id="col-lead">Lead</h3>
+          <span class="count">2</span>
+        </div>
+
+        <button type="button" class="card" draggable="true">
+          <span class="title">Rails API rescue — legacy Sidekiq queue</span>
+          <span class="meta">
+            <span class="money">$4,800</span>
+            <span class="fit"><span class="bar"><span style="inline-size: 85%"></span></span>85</span>
+          </span>
+        </button>
+
+        <button type="button" class="card" draggable="true">
+          <span class="title">Shopify theme port to Hydrogen</span>
+          <span class="meta">
+            <span class="money">$1,200</span>
+            <span class="fit low"><span class="bar"><span style="inline-size: 42%"></span></span>42</span>
+          </span>
+        </button>
+      </section>
+
+      <section class="column" aria-labelledby="col-drafting">
+        <div class="column-head">
+          <h3 id="col-drafting">Drafting</h3>
+          <span class="count">1</span>
+        </div>
+        <button type="button" class="card" draggable="true">
+          <span class="title">Postgres query tuning, read-replica cutover</span>
+          <span class="meta">
+            <span class="money">$6,400</span>
+            <span class="fit"><span class="bar"><span style="inline-size: 91%"></span></span>91</span>
+          </span>
+        </button>
+      </section>
+
+      <section class="column" aria-labelledby="col-sent">
+        <div class="column-head">
+          <h3 id="col-sent">Sent</h3>
+          <span class="count">1</span>
+        </div>
+        <button type="button" class="card" draggable="true">
+          <span class="title">Vue 2 to React 19 migration</span>
+          <span class="meta">
+            <span class="money">rate TBD</span>
+            <span class="fit"><span class="bar"><span style="inline-size: 73%"></span></span>73</span>
+          </span>
+        </button>
+      </section>
+
+      <section class="column" aria-labelledby="col-won">
+        <div class="column-head">
+          <h3 id="col-won">Won</h3>
+          <span class="count">0</span>
+        </div>
+        <p class="tally">Nothing here yet.</p>
+      </section>
+    </div>
+  </main>
+</div>
+</body>
+</html>

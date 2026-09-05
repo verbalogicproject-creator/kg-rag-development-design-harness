@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   parseHex, luminance, contrastRatio, parseTokens,
-  checkContrast, checkTokenResolution, designCheck, loadDesignSystem,
+  checkContrast, checkTokenResolution, checkPaletteCoverage, hueOf, designCheck, loadDesignSystem,
 } from '../src/designcheck.ts';
 import { DesignSystemSchema } from '../src/schema.ts';
 
@@ -160,6 +160,68 @@ test('DSC-01 catches a raw literal and lets an on-scale value through', () => {
   assert.equal(/"200ms"/.test(joined), false, '200ms is a declared duration');
 });
 
+/* ---- DSC-07: the contract and the tokens agree ---- */
+
+test('DSC-07 catches a role the contract names and the tokens never define', () => {
+  // The gap this closes: a contract could promise a role tokens.css does not
+  // provide, and every other check would still pass.
+  const tokens = parseTokens(':root { --ls-color-background: #FFFFFF; --ls-color-content: #111111; }');
+  const sys = system({
+    palette: { max_hues: 3, neutral_ramp: ['background', 'content'], semantic: ['primary'], modes: ['light'] },
+  });
+  const result = checkPaletteCoverage(sys, tokens);
+  assert.equal(result.status, 'fail');
+  assert.match(result.findings[0], /names role "primary" but tokens.css does not define it/);
+});
+
+test('DSC-07 counts hues against the declared budget and names them', () => {
+  const tokens = parseTokens(`:root {
+    --ls-color-background: #FFFFFF; --ls-color-content: #111111;
+    --ls-color-primary: #2F6F5E; --ls-color-accent: #A0552A; --ls-color-danger: #A33224;
+  }`);
+  const sys = system({
+    palette: {
+      max_hues: 1, neutral_ramp: ['background', 'content'],
+      semantic: ['primary', 'accent', 'danger'], modes: ['light'],
+    },
+  });
+  const result = checkPaletteCoverage(sys, tokens);
+  assert.equal(result.status, 'fail');
+  assert.match(result.findings.at(-1)!, /distinct hues .* against a budget of 1/);
+});
+
+test('DSC-07 treats near hues as one, so a palette is not padded by shades', () => {
+  // #A0552A and #A33224 are both clay-to-rust and sit within 30 degrees; a hue
+  // budget counts colour families, not swatches.
+  const tokens = parseTokens(`:root {
+    --ls-color-background: #FFFFFF; --ls-color-content: #111111;
+    --ls-color-accent: #A0552A; --ls-color-danger: #A33224;
+  }`);
+  const sys = system({
+    palette: {
+      max_hues: 1, neutral_ramp: ['background', 'content'],
+      semantic: ['accent', 'danger'], modes: ['light'],
+    },
+  });
+  assert.equal(checkPaletteCoverage(sys, tokens).status, 'pass');
+});
+
+test('hue maths places the shipped primary and accent where they belong', () => {
+  assert.equal(hueOf('#2F6F5E')!.hue, 164, 'the primary is a green');
+  assert.equal(hueOf('#A0552A')!.hue, 22, 'the accent is a clay orange');
+  assert.equal(hueOf('#808080')!.saturation, 0, 'a true grey has no hue');
+  assert.equal(hueOf('not-a-colour'), null);
+});
+
+test('DSC-07 says plainly that motion is contract-declared, not tokenised', () => {
+  // design.md has no motion field, so durations cannot become custom
+  // properties. Stating the limit beats a rule that could never pass.
+  const report = designCheck('blueprints/freelance-dashboard');
+  const coverage = report.checks.find((c) => c.id === 'DSC-07')!;
+  assert.equal(coverage.status, 'pass');
+  assert.match(coverage.detail, /motion is contract-declared, not tokenised/);
+});
+
 /* ---- the shipped blueprint ---- */
 
 test('the dashboard passes contrast in both modes, and says so with numbers', () => {
@@ -174,12 +236,20 @@ test('the dashboard passes contrast in both modes, and says so with numbers', ()
   assert.deepEqual(report.contrast_failures, []);
 });
 
-test('the unbuilt dashboard surface reports vacuous, so it banks no evidence', () => {
+test('the dashboard screens are actually scanned, not merely counted as present', () => {
+  // This test used to assert `vacuous`, which was correct while nothing was
+  // built. Now the token-driven screens exist, so the stronger claim is that
+  // the check really read them — a gate reporting `pass` over zero files is
+  // the failure `vacuous` exists to prevent, and is covered on an empty
+  // directory by its own test above.
   const report = designCheck('blueprints/freelance-dashboard');
   const resolution = report.checks.find((c) => c.id === 'DSC-01')!;
-  assert.equal(resolution.status, 'vacuous');
-  assert.equal(report.ok, true, 'vacuous does not fail the gate');
-  assert.notEqual(resolution.status, 'pass', 'but it must never read as a pass either');
+
+  assert.equal(resolution.status, 'pass');
+  assert.match(resolution.detail, /^(?!0 )\d+ file\(s\) scanned/, 'it must have read at least one file');
+  assert.deepEqual(report.unresolved_literals, []);
+  assert.deepEqual(report.off_scale_values, []);
+  assert.equal(report.ok, true);
 });
 
 test('every design scenario prints the test_name its contract declared (ART-04)', () => {
