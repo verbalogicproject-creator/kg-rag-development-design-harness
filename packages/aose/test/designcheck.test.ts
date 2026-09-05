@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   parseHex, luminance, contrastRatio, parseTokens,
-  checkContrast, checkTokenResolution, checkPaletteCoverage, hueOf, designCheck, loadDesignSystem,
+  checkContrast, checkTokenResolution, checkPaletteCoverage, hueOf, designCheck, loadDesignSystem, formatReport,
 } from '../src/designcheck.ts';
 import { DesignSystemSchema } from '../src/schema.ts';
 
@@ -276,4 +276,18 @@ test('a contrast target the tokens only just clear is still reported as measured
   )!;
   assert.ok(ratio >= 3.0, `border-strong must clear 3:1, measured ${ratio}`);
   assert.ok(ratio < 4.0, `and it is genuinely tight at ${ratio} — worth watching`);
+});
+
+test('a review-level scenario is surfaced, so the report never implies full coverage', () => {
+  // DSC-06 scores anti_direction against a build. It is unfalsifiable by a
+  // gate, so it is enforcement: review — but omitting it entirely would let a
+  // reader believe six passing checks meant the contract was fully covered.
+  // Invariant 1: a gap is labelled, never silent.
+  const report = designCheck('blueprints/freelance-dashboard');
+  const review = report.review_required.find((item) => item.id === 'DSC-06');
+
+  assert.ok(review, 'DSC-06 is declared at review level and must appear');
+  assert.equal(review!.requirement, 'DREQ-06');
+  assert.equal(report.checks.some((c) => c.id === 'DSC-06'), false, 'it must not be scored as a gate check');
+  assert.match(formatReport(report), /DSC-06[\s\S]*enforcement: review/);
 });

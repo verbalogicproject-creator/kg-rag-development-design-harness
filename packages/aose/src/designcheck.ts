@@ -35,6 +35,11 @@ export interface DesignReport {
   tokens_hash: string;
   ok: boolean;
   checks: CheckResult[];
+  /* Scenarios the contract declares at `review` level. They are not gate checks
+     and score nothing, but a report that omitted them would let a reader believe
+     the gate covers everything the contract asks for. Invariant 1: a gap is
+     labelled, never silent. */
+  review_required: { id: string; test_name: string; requirement: string }[];
   contrast_failures: string[];
   off_scale_values: string[];
   unresolved_literals: string[];
@@ -439,7 +444,19 @@ export function designCheck(
   const contrast = checks.find((c) => c.id === 'DSC-02')!;
   const resolution = checks.find((c) => c.id === 'DSC-01')!;
 
+  const gateIds = new Set(checks.map((check) => check.id));
+  const reviewRequired = system.requirements
+    .filter((requirement) => requirement.enforcement === 'review')
+    .flatMap((requirement) => requirement.verified_by
+      .filter((id) => !gateIds.has(id))
+      .map((id) => ({
+        id,
+        test_name: system.verification.scenarios.find((s) => s.id === id)?.test_name ?? id,
+        requirement: requirement.id,
+      })));
+
   return {
+    review_required: reviewRequired,
     /* The blueprint's own name, never the absolute path it happened to be run
        from. A report that embeds a device path is not reproducible, and this
        one is meant to be compared across machines and across runs. */
@@ -461,6 +478,10 @@ export function formatReport(report: DesignReport): string {
     lines.push(`${mark.padEnd(4)} ${check.id}  ${check.test_name}`);
     lines.push(`       ${check.detail}`);
     for (const finding of check.findings) lines.push(`       · ${finding}`);
+  }
+  for (const item of report.review_required) {
+    lines.push(`--   ${item.id}  ${item.test_name}`);
+    lines.push(`       ${item.requirement} is enforcement: review — a person judges this, no gate can`);
   }
   const failed = report.checks.filter((c) => c.status === 'fail').length;
   const vacuous = report.checks.filter((c) => c.status === 'vacuous').length;
