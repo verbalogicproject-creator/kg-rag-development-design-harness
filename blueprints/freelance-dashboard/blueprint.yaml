@@ -1,0 +1,1359 @@
+meta:
+  slug: freelance-dashboard
+  format: aose-blueprint/v2
+  generated_at: 2026-09-05T13:22:43.308Z
+constitution:
+  name: Freelance-Dashboard
+  version: 1
+  stack:
+    - node24
+    - esm
+    - vite
+    - react
+    - tailwind
+    - node-sqlite
+  articles:
+    - id: ART-01
+      title: Pure cores
+      rule: A core/* domain performs no I/O, no network access and no DOM access; it
+        is a function of its inputs.
+      enforcement: review
+    - id: ART-02
+      title: Errors are values
+      rule: A state transition reports failure by returning a discriminated Result,
+        never by throwing across a domain boundary.
+      enforcement: lint
+    - id: ART-03
+      title: Immutable transitions
+      rule: Domain state objects are never mutated in place; a transition returns a
+        new object.
+      enforcement: review
+    - id: ART-04
+      title: Every scenario is a named test
+      rule: Each verification scenario maps to exactly one test whose name matches the
+        scenario's test_name.
+      enforcement: gate
+    - id: ART-05
+      title: Local first
+      rule: The dashboard runs offline against local storage. No account, no hosted
+        backend, no telemetry.
+      enforcement: review
+    - id: ART-06
+      title: Fetch only what a source permits
+      rule: A domain may reach a network source only if that source appears on the
+        feed_sources allowlist. Scraping a site whose terms forbid programmatic
+        access is prohibited regardless of technical feasibility.
+      enforcement: lint
+    - id: ART-07
+      title: The design contract is law
+      rule: A surface renders from the design contract's tokens. A raw colour literal,
+        a magic pixel value or a one-off font size in a component is a defect.
+      enforcement: gate
+    - id: ART-08
+      title: No invented content ships
+      rule: Fixture values from generated screens are quarantined. Real content or an
+        explicit empty state, never a plausible-looking invention.
+      enforcement: lint
+    - id: ART-09
+      title: Scales are closed sets
+      rule: Every visual value is a member of a declared scale. A one-off size,
+        duration or radius is a defect even when it is expressed as a token.
+      enforcement: gate
+    - id: ART-10
+      title: Both modes ship
+      rule: Every declared contrast pair meets its target in light and in dark. A mode
+        that was never measured has not shipped.
+      enforcement: gate
+    - id: ART-11
+      title: The direction is falsifiable
+      rule: Every design system declares an anti_direction, and every entry cites its
+        source. A review that cannot name the item it is judging against has
+        reviewed nothing.
+      enforcement: review
+  allowlists:
+    - id: feed_sources
+      rationale: "Sources that publish machine-readable listings openly and permit
+        programmatic access. Upwork is deliberately absent: its terms prohibit
+        scraping and its API requires approval, so it enters only as an
+        authenticated source once access is granted."
+      entries:
+        - https://remotive.com/api/remote-jobs
+        - https://remoteok.com/api
+        - https://weworkremotely.com/remote-jobs.rss
+        - https://hn.algolia.com/api/v1/
+  budgets:
+    max_attempts: 2
+    max_respec: 2
+    timeout_minutes: 15
+    max_payload_tokens: 4000
+idea:
+  title: Freelance developer dashboard
+  goal: Track freelance opportunities from first sighting to won or lost, and
+    surface new ones worth a proposal.
+  audience: A solo developer starting to freelance, working offline on their own machine
+  seed_author: human
+  scope_class: architectural
+  success_criteria:
+    - WHEN a job post is pasted in THE SYSTEM SHALL extract its title, budget,
+      rate and skills, or report exactly which fields it could not read.
+    - WHEN an opportunity changes stage THE SYSTEM SHALL record the transition
+      and reject a stage change that the pipeline does not permit.
+    - WHILE a scout run is in progress THE SYSTEM SHALL fetch only from sources
+      on the feed_sources allowlist.
+    - WHEN a fetched listing matches one already stored THE SYSTEM SHALL
+      deduplicate it rather than creating a second opportunity.
+    - WHEN listings are scored against the profile THE SYSTEM SHALL rank them by
+      fit and show why each scored as it did.
+    - WHERE the dashboard is opened with no data THE SYSTEM SHALL show an
+      explicit empty state rather than invented sample rows.
+  non_goals:
+    - Invoicing, time tracking and earnings reporting, which are version two
+    - Any hosted backend, account system or telemetry
+    - Scraping a site whose terms prohibit programmatic access
+  constraints:
+    - Runs offline; a scout run is the only network activity and it is
+      user-triggered
+    - No credential is required to use the shipped source list
+    - The pure cores must be testable without a browser or a network
+  open_questions: []
+  alternatives_considered:
+    - option: Integrate the Upwork API directly as the primary source
+      rejected_because: Its API requires approval and its terms prohibit scraping, so
+        the product would be unusable until access is granted and unlawful if
+        built the other way.
+    - option: One store domain holding both persistence and matching logic
+      rejected_because: Scoring would become untestable without a database, and the
+        match rules are the part most likely to change weekly.
+    - option: Background polling daemon for the scout
+      rejected_because: A user-triggered run keeps network activity visible and
+        consensual, and removes an entire class of rate-limit and lifecycle
+        bugs.
+  elicitation:
+    - challenge: A parser over unstructured job posts will be wrong often. Does that
+        make the paste path useless?
+      response: It returns a partial result naming the fields it could not read, so
+        the user corrects three fields instead of typing eleven. The contract
+        makes the failure mode explicit rather than silent.
+    - challenge: Why separate core/match from core/pipeline when both operate on an
+        opportunity?
+      response: Pipeline is a state machine whose rules are stable; match is a scoring
+        heuristic that will be tuned constantly. Separating them means tuning
+        the score never risks the stage transitions.
+    - challenge: If the scout can only read four public feeds, is it actually useful
+        on day one?
+      response: Those feeds carry thousands of remote developer listings daily. The
+        value is the filter, not the crawl, and the authenticated slot means a
+        better source can be added without rewriting the domain.
+sources:
+  - url: https://arxiv.org/abs/2510.12702
+    kind: arxiv
+    title: "Beyond Postconditions: Can Large Language Models Infer Formal Contracts
+      from Natural Language?"
+    claim: Generating preconditions alongside postconditions reduces the false
+      alarms a verifier reports when the resulting contracts are checked.
+    confidence: medium
+    supports:
+      - DEC-01
+    verified:
+      status: verified
+      fetched_title: "Beyond Postconditions: Can Large Language Models infer Formal
+        Contracts for Automatic Software Verification?"
+      checked_at: 2026-09-04T23:10:27.354Z
+      detail: "arXiv 2510.12702: title similarity 0.64, claim terms present 57%."
+      excerpt: Automatic software verifiers have become increasingly effective at the
+        task of checking software against (formal) specifications. Yet, their
+        adoption in practice has been hampered by the lack of such
+        specifications in real world code. Large Language Models (LLMs) have
+        shown promise in inferring formal postconditions from natural language
+        hints embedded in code such as function names, comments or
+        documentation. Using the generated postconditions as specifications in a
+        subsequent verification, however, often leads verifiers to suggest
+        invalid inputs, hinting at potential issues that ultimately t
+      claim_support: 0.5714285714285714
+      canonical_id: arXiv:2510.12702
+  - url: https://arxiv.org/abs/2309.12499
+    kind: arxiv
+    title: "CodePlan: Repository-level Coding using LLMs and Planning"
+    claim: Repository-scale change is better handled as dependency and impact
+      analysis producing a multi-step plan than as one-shot generation.
+    confidence: medium
+    supports:
+      - DEC-02
+    verified:
+      status: verified
+      fetched_title: "CodePlan: Repository-level Coding using LLMs and Planning"
+      checked_at: 2026-09-04T23:10:27.832Z
+      detail: "arXiv 2309.12499: title similarity 1.00, claim terms present 61%."
+      excerpt: Software engineering activities such as package migration, fixing
+        errors reports from static analysis or testing, and adding type
+        annotations or other specifications to a codebase, involve pervasively
+        editing the entire repository of code. We formulate these activities as
+        repository-level coding tasks. Recent tools like GitHub Copilot, which
+        are powered by Large Language Models (LLMs), have succeeded in offering
+        high-quality solutions to localized coding problems. Repository-level
+        coding tasks are more involved and cannot be solved directly using LLMs,
+        since code within a repository is inter-d
+      claim_support: 0.6111111111111112
+      canonical_id: arXiv:2309.12499
+manifest:
+  system:
+    name: Freelance-Dashboard
+    constitution: constitution.yaml
+    scope_class: architectural
+    boundaries:
+      - domain: core/opportunity
+        responsibility: The opportunity record and its pipeline state machine. Pure; no I/O.
+        depends_on: []
+        exports:
+          - STAGES
+          - createOpportunity
+          - advance
+          - canAdvance
+          - isTerminal
+        spec: core.opportunity.spec.yaml
+        task: core.opportunity.task.yaml
+      - domain: core/match
+        responsibility: Score an opportunity against a freelancer profile and explain
+          the score. Pure; no I/O.
+        depends_on:
+          - core/opportunity
+        exports:
+          - scoreOpportunity
+          - rankOpportunities
+        spec: core.match.spec.yaml
+        task: core.match.task.yaml
+      - domain: core/parse
+        responsibility: Turn a pasted job post into an opportunity, naming every field
+          it could not read. Pure; no I/O.
+        depends_on:
+          - core/opportunity
+        exports:
+          - parsePost
+          - parseRate
+          - parseBudget
+          - extractSkills
+        spec: core.parse.spec.yaml
+        task: core.parse.task.yaml
+      - domain: infra/feeds
+        responsibility: Fetch allowlisted job feeds through an injected fetch, normalize
+          them to opportunities and deduplicate.
+        depends_on:
+          - core/opportunity
+          - core/parse
+        exports:
+          - SOURCES
+          - runScout
+          - normalizeItem
+          - dedupeKey
+        spec: infra.feeds.spec.yaml
+        task: infra.feeds.task.yaml
+      - domain: infra/store
+        responsibility: SQLite persistence for opportunities, profile and scout history,
+          with schema migration.
+        depends_on:
+          - core/opportunity
+        exports:
+          - openStore
+          - saveOpportunity
+          - listOpportunities
+          - saveProfile
+          - loadProfile
+        spec: infra.store.spec.yaml
+        task: infra.store.task.yaml
+      - domain: ui/client
+        responsibility: The dashboard surfaces. Pipeline board, scout inbox, opportunity
+          detail, profile.
+        depends_on:
+          - core/opportunity
+          - core/match
+          - infra/store
+        exports:
+          - App
+          - PipelineBoard
+          - ScoutInbox
+          - OpportunityDetail
+          - ProfileForm
+          - toBoardColumns
+          - toInboxRows
+          - emptyStateFor
+        spec: ui.client.spec.yaml
+        task: ui.client.task.yaml
+  invariants:
+    - ART-01
+    - ART-02
+    - ART-03
+    - ART-04
+    - ART-05
+    - ART-06
+    - ART-07
+    - ART-08
+  decisions:
+    - id: DEC-01
+      statement: Every contract declares a precondition and a postcondition, not only
+        a signature.
+      rationale: Generating preconditions alongside postconditions measurably reduces
+        false alarms when contracts are checked, so both are required rather
+        than optional.
+      alternatives:
+        - Postconditions only
+        - Prose descriptions only
+      sources:
+        - https://arxiv.org/abs/2510.12702
+    - id: DEC-02
+      statement: Decompose into a dependency DAG of pure cores plus thin adapters, and
+        build in topological order.
+      rationale: Independent lines of work converge on decomposing into a dependency
+        structure and planning per node rather than generating a system in one
+        pass.
+      alternatives:
+        - One module per screen
+        - A single service with internal layering
+      sources:
+        - https://arxiv.org/abs/2309.12499
+    - id: DEC-03
+      statement: The scout injects its fetch function rather than calling the network
+        directly.
+      rationale: Normalization, deduplication and scoring stay deterministic and
+        gate-testable offline, and the only network edge is a single
+        substitutable seam.
+      alternatives:
+        - Direct fetch inside the domain
+        - A recorded-cassette HTTP layer
+      sources: []
+    - id: DEC-04
+      statement: Source access is governed by the feed_sources allowlist in the
+        constitution, and Upwork is excluded until API access is granted.
+      rationale: Its terms prohibit scraping and its API needs approval, so the
+        allowlist encodes the legal boundary where a linter can enforce it
+        rather than where a developer must remember it.
+      alternatives:
+        - Scrape the public search pages
+        - Ship with no sources at all
+      sources: []
+    - id: DEC-05
+      statement: The surface is built against a frozen L.S.Design handoff rather than
+        styled during implementation.
+      rationale: A human approves the visual direction on real screens once, and the
+        builder implements what was approved instead of relitigating it, which
+        is what keeps a token system from drifting.
+      alternatives:
+        - Style during implementation
+        - Apply a component library default theme
+      sources: []
+specs:
+  core/opportunity:
+    module: core/opportunity
+    runtime: esm-only, node24, browser
+    requirements:
+      - id: REQ-01
+        ears: WHEN an opportunity is created from a title and a source THE SYSTEM SHALL
+          place it at the lead stage with a stable identifier and a creation
+          timestamp.
+        verified_by:
+          - SC-01
+      - id: REQ-02
+        ears: WHEN a stage change is requested THE SYSTEM SHALL apply it only if the
+          pipeline permits that transition, and otherwise return a discriminated
+          error naming the rejected transition.
+        verified_by:
+          - SC-02
+          - SC-03
+      - id: REQ-03
+        ears: WHEN a stage change is applied THE SYSTEM SHALL return a new opportunity
+          with the transition appended to its history and leave the input
+          unchanged.
+        verified_by:
+          - SC-04
+      - id: REQ-04
+        ears: WHERE an opportunity has reached won, lost or archived THE SYSTEM SHALL
+          treat it as terminal and reject any further stage change.
+        verified_by:
+          - SC-05
+      - id: REQ-05
+        ears: WHEN two opportunities describe the same posting THE SYSTEM SHALL produce
+          the same deduplication key for both.
+        verified_by:
+          - SC-06
+    types: >
+      type Stage = 'lead' | 'drafting' | 'submitted' | 'interviewing' | 'won' |
+      'lost' | 'archived';
+
+      type StageError = 'ILLEGAL_TRANSITION' | 'TERMINAL_STAGE' |
+      'UNKNOWN_STAGE';
+
+
+      type Result<T, E extends string = string> =
+        | { ok: true; value: T }
+        | { ok: false; error: E; detail: string };
+
+      interface Money { readonly amount: number; readonly currency: string }
+
+
+      interface Transition {
+        readonly from: Stage;
+        readonly to: Stage;
+        readonly at: string;          // ISO 8601
+        readonly note: string;
+      }
+
+
+      interface Opportunity {
+        readonly id: string;
+        readonly title: string;
+        readonly source: string;      // the feed or 'manual'
+        readonly url: string;
+        readonly stage: Stage;
+        readonly budget: Money | null;
+        readonly hourlyRate: Money | null;
+        readonly skills: readonly string[];
+        readonly postedAt: string | null;
+        readonly createdAt: string;
+        readonly history: readonly Transition[];
+        readonly notes: string;
+      }
+    contracts:
+      "createOpportunity(draft: Partial<Opportunity>, now: string): Result<Opportunity, StageError>":
+        kind: transition
+        precondition: draft.title is a non-empty string and now is an ISO 8601 timestamp.
+        postcondition: Returns an opportunity at stage 'lead' with an empty history,
+          createdAt set to now, and an id derived deterministically from source
+          and url so the same posting yields the same id.
+        errors:
+          - UNKNOWN_STAGE
+      "canAdvance(from: Stage, to: Stage): boolean":
+        kind: query
+        precondition: Both arguments are declared Stage values.
+        postcondition: Returns true only for a transition the pipeline permits, and
+          false for every transition out of a terminal stage.
+        errors: []
+      "advance(opportunity: Opportunity, to: Stage, now: string, note: string): Result<Opportunity, StageError>":
+        kind: transition
+        precondition: canAdvance(opportunity.stage, to) is true and now is an ISO 8601
+          timestamp.
+        postcondition: Returns a new opportunity at the requested stage with one
+          transition appended to history. The input object is not mutated.
+          Returns TERMINAL_STAGE when the current stage is terminal and
+          ILLEGAL_TRANSITION otherwise.
+        errors:
+          - ILLEGAL_TRANSITION
+          - TERMINAL_STAGE
+          - UNKNOWN_STAGE
+      "isTerminal(stage: Stage): boolean":
+        kind: query
+        precondition: stage is a declared Stage value.
+        postcondition: Returns true exactly for won, lost and archived.
+        errors: []
+    external_sources: []
+    verification:
+      test_suite: test/opportunity.test.js
+      scenarios:
+        - id: SC-01
+          given: a draft with a title and a source url
+          when: an opportunity is created
+          then: it starts at lead with an empty history and a deterministic id
+          test_name: creates a lead with a deterministic id and empty history
+        - id: SC-02
+          given: an opportunity at lead
+          when: it is advanced to drafting
+          then: a new opportunity at drafting is returned
+          test_name: permits a legal stage transition
+        - id: SC-03
+          given: an opportunity at lead
+          when: it is advanced directly to won
+          then: an ILLEGAL_TRANSITION error is returned
+          test_name: rejects a transition the pipeline does not permit
+        - id: SC-04
+          given: an opportunity at submitted
+          when: it is advanced to interviewing
+          then: the input object is unchanged and the returned history has one more entry
+          test_name: advancing does not mutate the input opportunity
+        - id: SC-05
+          given: an opportunity at won
+          when: any further advance is attempted
+          then: a TERMINAL_STAGE error is returned
+          test_name: refuses to move an opportunity out of a terminal stage
+        - id: SC-06
+          given: two drafts describing the same posting
+          when: both are created
+          then: their ids are equal
+          test_name: the same posting yields the same id
+  core/match:
+    module: core/match
+    runtime: esm-only, node24, browser
+    requirements:
+      - id: REQ-01
+        ears: WHEN an opportunity is scored against a profile THE SYSTEM SHALL return a
+          score between 0 and 100 together with the reasons that produced it.
+        verified_by:
+          - SC-01
+          - SC-02
+      - id: REQ-02
+        ears: IF an opportunity matches a profile exclusion THE SYSTEM SHALL score it
+          zero and name the exclusion that rejected it.
+        verified_by:
+          - SC-03
+      - id: REQ-03
+        ears: IF an opportunity's rate is below the profile minimum THE SYSTEM SHALL
+          reduce its score and record the shortfall as a reason.
+        verified_by:
+          - SC-04
+      - id: REQ-04
+        ears: WHEN a list of opportunities is ranked THE SYSTEM SHALL order it by score
+          descending and break ties by the more recent posting.
+        verified_by:
+          - SC-05
+      - id: REQ-05
+        ears: WHERE a profile declares no skills THE SYSTEM SHALL score every
+          opportunity on rate and recency alone rather than returning zero for
+          all.
+        verified_by:
+          - SC-06
+    types: |
+      import type { Opportunity, Money } from '../core/opportunity';
+
+      interface Profile {
+        readonly skills: readonly string[];
+        readonly minRate: Money | null;
+        readonly keywords: readonly string[];
+        readonly exclusions: readonly string[];
+      }
+
+      type ReasonKind = 'skill' | 'rate' | 'keyword' | 'recency' | 'exclusion';
+
+      interface Reason {
+        readonly kind: ReasonKind;
+        readonly detail: string;
+        readonly delta: number;       // contribution to the final score
+      }
+
+      interface Score {
+        readonly value: number;       // 0..100
+        readonly reasons: readonly Reason[];
+        readonly excluded: boolean;
+      }
+    contracts:
+      "scoreOpportunity(opportunity: Opportunity, profile: Profile, now: string): Score":
+        kind: query
+        precondition: now is an ISO 8601 timestamp and profile arrays are defined,
+          possibly empty.
+        postcondition: Returns a score in 0..100 whose reasons' deltas sum to the score,
+          or a zero score with excluded true and a single exclusion reason. The
+          same inputs always produce the same score.
+        errors: []
+        algorithm: weighted sum of skill overlap, rate margin above the profile minimum,
+          keyword hits and posting recency, clamped to 0..100, short-circuited
+          to zero on any exclusion match
+      "rankOpportunities(opportunities: readonly Opportunity[], profile: Profile, now: string): readonly { opportunity: Opportunity; score: Score }[]":
+        kind: query
+        precondition: Every opportunity is well formed and now is an ISO 8601 timestamp.
+        postcondition: Returns every input paired with its score, ordered by score
+          descending then by postedAt descending. The input array is not
+          mutated.
+        errors: []
+    external_sources: []
+    verification:
+      test_suite: test/match.test.js
+      scenarios:
+        - id: SC-01
+          given: an opportunity whose skills fully overlap the profile
+          when: it is scored
+          then: the score is high and a skill reason names the overlap
+          test_name: scores a full skill overlap highly and explains why
+        - id: SC-02
+          given: any scored opportunity
+          when: the reasons are summed
+          then: the deltas add up to the reported score
+          test_name: the reasons account for the whole score
+        - id: SC-03
+          given: an opportunity containing a profile exclusion
+          when: it is scored
+          then: the score is zero, excluded is true and the exclusion is named
+          test_name: an exclusion drives the score to zero and says which one
+        - id: SC-04
+          given: an opportunity paying below the profile minimum rate
+          when: it is scored
+          then: the score is reduced and a rate reason records the shortfall
+          test_name: a rate below the minimum reduces the score with a stated shortfall
+        - id: SC-05
+          given: several opportunities with different scores and dates
+          when: they are ranked
+          then: they are ordered by score then by recency
+          test_name: ranks by score and breaks ties by recency
+        - id: SC-06
+          given: a profile that declares no skills
+          when: opportunities are scored
+          then: they are still separated by rate and recency rather than all scoring zero
+          test_name: an empty skill list still produces a useful ranking
+  core/parse:
+    module: core/parse
+    runtime: esm-only, node24, browser
+    requirements:
+      - id: REQ-01
+        ears: WHEN a pasted job post is parsed THE SYSTEM SHALL return the fields it
+          recognized together with an explicit list of the fields it could not
+          read.
+        verified_by:
+          - SC-01
+          - SC-02
+      - id: REQ-02
+        ears: IF the post contains no recognizable title THE SYSTEM SHALL return a
+          discriminated error rather than guessing one.
+        verified_by:
+          - SC-03
+      - id: REQ-03
+        ears: WHEN a rate is written in any of the common forms THE SYSTEM SHALL extract
+          its amount and currency.
+        verified_by:
+          - SC-04
+          - SC-05
+      - id: REQ-04
+        ears: WHEN a fixed budget is stated as a range THE SYSTEM SHALL record the lower
+          bound and note that a range was given.
+        verified_by:
+          - SC-06
+      - id: REQ-05
+        ears: WHILE extracting skills THE SYSTEM SHALL return only terms that appear in
+          the post, never terms inferred from context.
+        verified_by:
+          - SC-07
+    types: >
+      import type { Opportunity, Money, Result } from '../core/opportunity';
+
+
+      type ParseError = 'NO_TITLE' | 'EMPTY_INPUT';
+
+      type Field = 'title' | 'budget' | 'hourlyRate' | 'skills' | 'postedAt' |
+      'url';
+
+
+      interface ParseOutcome {
+        readonly draft: Partial<Opportunity>;
+        readonly missing: readonly Field[];    // fields the parser could not read
+        readonly notes: readonly string[];     // e.g. "budget given as a range"
+      }
+    contracts:
+      "parsePost(text: string, now: string): Result<ParseOutcome, ParseError>":
+        kind: transition
+        precondition: text is a string and now is an ISO 8601 timestamp.
+        postcondition: Returns a draft carrying only fields found verbatim in the text,
+          plus every field it failed to read listed in missing. Returns
+          EMPTY_INPUT for blank text and NO_TITLE when no title line can be
+          identified. Never invents a value.
+        errors:
+          - NO_TITLE
+          - EMPTY_INPUT
+      "parseRate(text: string): Money | null":
+        kind: query
+        precondition: text is a string.
+        postcondition: Returns the hourly rate with its currency when one is stated, and
+          null when none is stated. Never returns a rate the text does not
+          contain.
+        errors: []
+      "parseBudget(text: string): Result<{ budget: Money; wasRange: boolean }, ParseError>":
+        kind: transition
+        precondition: text is a string.
+        postcondition: Returns the stated fixed budget, using the lower bound and
+          flagging wasRange when a range is given. Returns an error when no
+          budget is stated.
+        errors:
+          - EMPTY_INPUT
+      "extractSkills(text: string, vocabulary: readonly string[]): readonly string[]":
+        kind: query
+        precondition: vocabulary is a list of known skill terms, possibly empty.
+        postcondition: Returns the vocabulary terms that occur in the text, deduplicated
+          and lowercased, in the order they first appear. Returns an empty array
+          rather than guessing when nothing matches.
+        errors: []
+    external_sources: []
+    verification:
+      test_suite: test/parse.test.js
+      scenarios:
+        - id: SC-01
+          given: a complete job post
+          when: it is parsed
+          then: title, rate and skills are extracted and missing is empty
+          test_name: extracts every stated field from a complete post
+        - id: SC-02
+          given: a post with no budget and no date
+          when: it is parsed
+          then: those fields are listed in missing rather than filled in
+          test_name: names the fields it could not read instead of inventing them
+        - id: SC-03
+          given: a body of text with no title line
+          when: it is parsed
+          then: a NO_TITLE error is returned
+          test_name: refuses to guess a title
+        - id: SC-04
+          given: a rate written as 85 dollars per hour
+          when: the rate is parsed
+          then: the amount and currency are returned
+          test_name: reads an hourly rate written in prose
+        - id: SC-05
+          given: text with no rate at all
+          when: the rate is parsed
+          then: null is returned
+          test_name: returns null rather than a default rate
+        - id: SC-06
+          given: a budget stated as a range
+          when: the budget is parsed
+          then: the lower bound is recorded and wasRange is true
+          test_name: records the lower bound of a budget range and flags it
+        - id: SC-07
+          given: a post mentioning two known skills and implying a third
+          when: skills are extracted
+          then: only the two stated skills are returned
+          test_name: extracts only skills the post actually names
+  infra/feeds:
+    module: infra/feeds
+    runtime: esm-only, node24
+    requirements:
+      - id: REQ-01
+        ears: WHILE a scout run is in progress THE SYSTEM SHALL request only URLs whose
+          origin appears in the shipped source list.
+        verified_by:
+          - SC-01
+          - SC-02
+      - id: REQ-02
+        ears: IF a source is unreachable or returns a malformed body THE SYSTEM SHALL
+          record that source as failed and continue with the remaining sources.
+        verified_by:
+          - SC-03
+      - id: REQ-03
+        ears: WHEN a listing is normalized THE SYSTEM SHALL produce an opportunity
+          carrying the source it came from and its original url.
+        verified_by:
+          - SC-04
+      - id: REQ-04
+        ears: WHEN a listing has already been seen THE SYSTEM SHALL deduplicate it
+          rather than emitting a second opportunity.
+        verified_by:
+          - SC-05
+      - id: REQ-05
+        ears: WHERE a source requires a credential that has not been supplied THE SYSTEM
+          SHALL skip it and report it as skipped rather than attempting an
+          unauthenticated request.
+        verified_by:
+          - SC-06
+    types: >
+      import type { Opportunity, Result } from '../core/opportunity';
+
+
+      type FeedError = 'UNREACHABLE' | 'MALFORMED' | 'NOT_ALLOWED' |
+      'MISSING_CREDENTIAL';
+
+      type Access = 'public-feed' | 'public-api' | 'authenticated';
+
+
+      interface Source {
+        readonly id: string;
+        readonly url: string;
+        readonly access: Access;
+        readonly format: 'json' | 'rss';
+        readonly credentialEnvVar: string | null;
+      }
+
+
+      interface SourceOutcome {
+        readonly source: string;
+        readonly status: 'ok' | 'failed' | 'skipped';
+        readonly detail: string;
+        readonly found: number;
+      }
+
+
+      interface ScoutReport {
+        readonly ranAt: string;
+        readonly opportunities: readonly Opportunity[];
+        readonly outcomes: readonly SourceOutcome[];
+        readonly duplicatesDropped: number;
+      }
+
+
+      type FetchLike = (url: string) => Promise<{ ok: boolean; status: number;
+      text: () => Promise<string> }>;
+    contracts:
+      "runScout(sources: readonly Source[], fetchImpl: FetchLike, seen: readonly string[], now: string): Promise<Result<ScoutReport, FeedError>>":
+        kind: transition
+        precondition: Every source url origin appears in SOURCES, fetchImpl is supplied
+          by the caller, and now is an ISO 8601 timestamp.
+        postcondition: Returns one outcome per source and the deduplicated opportunities
+          found. A source that is unreachable or malformed is recorded as failed
+          without aborting the run. A source whose credential env var is unset
+          is recorded as skipped and never requested. Returns NOT_ALLOWED
+          without any request when a url is not in SOURCES.
+        errors:
+          - UNREACHABLE
+          - MALFORMED
+          - NOT_ALLOWED
+          - MISSING_CREDENTIAL
+      "normalizeItem(raw: unknown, source: Source, now: string): Result<Opportunity, FeedError>":
+        kind: transition
+        precondition: source is a declared source and raw is one item from its response body.
+        postcondition: Returns an opportunity at the lead stage carrying source.id and
+          the item's own url. Returns MALFORMED when the item lacks a title or a
+          url, rather than substituting a placeholder.
+        errors:
+          - MALFORMED
+      "dedupeKey(opportunity: Opportunity): string":
+        kind: query
+        precondition: The opportunity has a url or a title.
+        postcondition: Returns a stable key such that two listings of the same posting
+          from different sources collide, and different postings do not.
+        errors: []
+    external_sources:
+      - url: https://remotive.com/api/remote-jobs
+        allowlist: feed_sources
+        access: public-api
+        note: Public JSON API for remote listings, no credential required.
+      - url: https://remoteok.com/api
+        allowlist: feed_sources
+        access: public-api
+        note: Public JSON endpoint, no credential required.
+      - url: https://weworkremotely.com/remote-jobs.rss
+        allowlist: feed_sources
+        access: public-feed
+        note: Published RSS feed intended for syndication.
+      - url: https://hn.algolia.com/api/v1/search
+        allowlist: feed_sources
+        access: public-api
+        note: Public search API over Hacker News hiring threads, no credential required.
+    verification:
+      test_suite: test/feeds.test.js
+      scenarios:
+        - id: SC-01
+          given: the shipped source list
+          when: a scout run executes with a recording fetch
+          then: every requested url origin is one of the shipped sources
+          test_name: requests only the shipped allowlisted sources
+        - id: SC-02
+          given: a source whose url is not in the shipped list
+          when: a scout run is attempted
+          then: NOT_ALLOWED is returned and no request is made
+          test_name: refuses an unlisted source without touching the network
+        - id: SC-03
+          given: one source that errors and one that succeeds
+          when: the run executes
+          then: the failure is recorded and the successful source still yields listings
+          test_name: one failing source does not abort the run
+        - id: SC-04
+          given: a well formed feed item
+          when: it is normalized
+          then: an opportunity at lead carrying the source and url is returned
+          test_name: normalizes a feed item into a lead opportunity
+        - id: SC-05
+          given: the same posting present in two feeds
+          when: the run executes
+          then: one opportunity is emitted and the duplicate is counted
+          test_name: deduplicates the same posting seen in two feeds
+        - id: SC-06
+          given: an authenticated source with no credential in the environment
+          when: the run executes
+          then: it is reported as skipped and never requested
+          test_name: skips an authenticated source when its credential is absent
+  infra/store:
+    module: infra/store
+    runtime: esm-only, node24
+    requirements:
+      - id: REQ-01
+        ears: WHEN the store is opened against a new file THE SYSTEM SHALL create its
+          schema and record the schema version.
+        verified_by:
+          - SC-01
+      - id: REQ-02
+        ears: WHEN the store is opened against a file from an older schema version THE
+          SYSTEM SHALL migrate it forward without losing existing rows.
+        verified_by:
+          - SC-02
+      - id: REQ-03
+        ears: WHEN an opportunity is saved twice THE SYSTEM SHALL update the existing
+          row rather than creating a duplicate.
+        verified_by:
+          - SC-03
+      - id: REQ-04
+        ears: WHEN opportunities are listed by stage THE SYSTEM SHALL return only that
+          stage, most recently updated first.
+        verified_by:
+          - SC-04
+      - id: REQ-05
+        ears: IF a write fails THE SYSTEM SHALL leave the database unchanged and return
+          a discriminated error.
+        verified_by:
+          - SC-05
+    types: |
+      import type { Opportunity, Stage, Result } from '../core/opportunity';
+      import type { Profile } from '../core/match';
+
+      type StoreError = 'NOT_FOUND' | 'WRITE_FAILED' | 'MIGRATION_FAILED';
+
+      interface Store {
+        readonly path: string;
+        readonly schemaVersion: number;
+        close(): void;
+      }
+    contracts:
+      "openStore(path: string): Result<Store, StoreError>":
+        kind: transition
+        precondition: path is a writable file path or the string ':memory:'.
+        postcondition: Returns an open store whose schema is at the current version,
+          creating or migrating it as needed. Existing rows survive a migration.
+          Returns MIGRATION_FAILED without altering the file when migration
+          cannot complete.
+        errors:
+          - MIGRATION_FAILED
+          - WRITE_FAILED
+      "saveOpportunity(store: Store, opportunity: Opportunity): Result<Opportunity, StoreError>":
+        kind: transition
+        precondition: The store is open and the opportunity has an id.
+        postcondition: Inserts or updates the row keyed by id and returns the stored
+          opportunity. Writing the same opportunity twice leaves exactly one
+          row. On failure the database is unchanged.
+        errors:
+          - WRITE_FAILED
+      "listOpportunities(store: Store, stage: Stage | null): Result<readonly Opportunity[], StoreError>":
+        kind: transition
+        precondition: The store is open.
+        postcondition: Returns opportunities at the requested stage, or all of them when
+          stage is null, ordered by last update descending.
+        errors:
+          - NOT_FOUND
+      "saveProfile(store: Store, profile: Profile): Result<Profile, StoreError>":
+        kind: transition
+        precondition: The store is open.
+        postcondition: Persists the single profile row, replacing any previous one, and
+          returns it.
+        errors:
+          - WRITE_FAILED
+      "loadProfile(store: Store): Result<Profile, StoreError>":
+        kind: transition
+        precondition: The store is open.
+        postcondition: Returns the stored profile, or NOT_FOUND when none has been
+          saved. Never returns a fabricated default profile.
+        errors:
+          - NOT_FOUND
+    external_sources: []
+    verification:
+      test_suite: test/store.test.js
+      scenarios:
+        - id: SC-01
+          given: a path with no database
+          when: the store is opened
+          then: the schema is created at the current version
+          test_name: creates the schema on first open
+        - id: SC-02
+          given: a database written at an older schema version
+          when: the store is opened
+          then: it migrates forward and the existing rows survive
+          test_name: migrates an older database without losing rows
+        - id: SC-03
+          given: an opportunity saved twice
+          when: it is listed
+          then: exactly one row is returned
+          test_name: saving the same opportunity twice leaves one row
+        - id: SC-04
+          given: opportunities across several stages
+          when: one stage is listed
+          then: only that stage is returned, most recent first
+          test_name: lists a single stage ordered by recency
+        - id: SC-05
+          given: a store whose write fails
+          when: a save is attempted
+          then: WRITE_FAILED is returned and the database is unchanged
+          test_name: a failed write leaves the database untouched
+  ui/client:
+    module: ui/client
+    runtime: vite, react 19, tailwind 4, typescript, vitest with testing-library
+    requirements:
+      - id: REQ-01
+        ears: WHEN the board is rendered THE SYSTEM SHALL show one column per pipeline
+          stage, each listing only the opportunities at that stage.
+        verified_by:
+          - SC-01
+      - id: REQ-02
+        ears: WHEN an opportunity is moved to another column THE SYSTEM SHALL apply the
+          engine's transition and leave the board unchanged if the engine
+          rejects it.
+        verified_by:
+          - SC-02
+          - SC-03
+      - id: REQ-03
+        ears: WHEN the scout inbox is rendered THE SYSTEM SHALL list scored listings
+          highest first and show the reasons behind each score.
+        verified_by:
+          - SC-04
+      - id: REQ-04
+        ears: WHERE a surface has no data THE SYSTEM SHALL render an explicit empty
+          state naming the next action, never placeholder rows.
+        verified_by:
+          - SC-05
+      - id: REQ-05
+        ears: WHILE a scout run is in progress THE SYSTEM SHALL show which sources are
+          being read and report each source's outcome when the run ends.
+        verified_by:
+          - SC-06
+      - id: REQ-06
+        ears: WHEN any surface renders THE SYSTEM SHALL take every colour, type, spacing
+          and radius value from the design contract's tokens rather than from a
+          literal.
+        verified_by:
+          - SC-07
+    types: >
+      import type { Opportunity, Stage } from '../core/opportunity';
+
+      import type { Score, Profile } from '../core/match';
+
+      import type { ScoutReport } from '../infra/feeds';
+
+
+      interface Column {
+        readonly stage: Stage;
+        readonly label: string;
+        readonly items: readonly Opportunity[];
+      }
+
+
+      interface InboxRow {
+        readonly opportunity: Opportunity;
+        readonly score: Score;
+        readonly isNew: boolean;
+      }
+
+
+      interface EmptyState {
+        readonly headline: string;
+        readonly action: string;      // the next thing the person can do
+      }
+
+
+      type Surface = 'pipeline-board' | 'scout-inbox' | 'opportunity-detail' |
+      'profile';
+
+
+      interface DashboardProps {
+        readonly opportunities: readonly Opportunity[];
+        readonly profile: Profile | null;
+        readonly lastScout: ScoutReport | null;
+        readonly onAdvance: (id: string, to: Stage) => void;
+        readonly onScout: () => void;
+      }
+    contracts:
+      "toBoardColumns(opportunities: readonly Opportunity[], stages: readonly Stage[]): readonly Column[]":
+        kind: query
+        precondition: stages lists the pipeline stages in display order.
+        postcondition: Returns one column per stage in the given order, each holding
+          only the opportunities at that stage, with every input opportunity
+          appearing in exactly one column. The input array is not mutated.
+        errors: []
+      "toInboxRows(scored: readonly { opportunity: Opportunity; score: Score }[], seenIds: readonly string[]): readonly InboxRow[]":
+        kind: query
+        precondition: scored is the output of rankOpportunities and seenIds lists
+          opportunities already reviewed.
+        postcondition: Returns the rows in the order given, marking isNew true exactly
+          for opportunities whose id is absent from seenIds.
+        errors: []
+      "emptyStateFor(surface: Surface): EmptyState":
+        kind: query
+        precondition: surface is one of the declared surfaces.
+        postcondition: Returns a headline and a concrete next action for that surface.
+          Never returns sample or placeholder content.
+        errors: []
+      "PipelineBoard(props: DashboardProps): JSX.Element":
+        kind: query
+        precondition: props.opportunities is defined, possibly empty.
+        postcondition: Renders one region per stage from toBoardColumns, renders the
+          board's empty state when there are no opportunities, and calls
+          onAdvance with the opportunity id and target stage when a card is
+          moved.
+        errors: []
+      "ScoutInbox(props: DashboardProps): JSX.Element":
+        kind: query
+        precondition: props.profile may be null, in which case scoring is not shown.
+        postcondition: Renders scored listings highest first with each score's reasons
+          visible, shows per-source outcomes after a run, and calls onScout when
+          a run is requested.
+        errors: []
+      "OpportunityDetail(props: { opportunity: Opportunity; score: Score | null }): JSX.Element":
+        kind: query
+        precondition: opportunity is a stored opportunity.
+        postcondition: Renders the opportunity's fields, its stage history in order, and
+          its score reasons when a score is supplied. Renders a field's absence
+          explicitly rather than substituting a value.
+        errors: []
+      "ProfileForm(props: { profile: Profile | null; onSave: (profile: Profile) => void }): JSX.Element":
+        kind: query
+        precondition: profile may be null when none has been saved.
+        postcondition: Renders the profile's skills, minimum rate, keywords and
+          exclusions for editing, and calls onSave with the edited profile. With
+          a null profile it renders empty fields, never invented defaults.
+        errors: []
+      "App(props: DashboardProps): JSX.Element":
+        kind: query
+        precondition: The store has been loaded.
+        postcondition: Renders the four surfaces behind navigation, each reachable, with
+          no navigation target left unresolved.
+        errors: []
+    design:
+      system: design.system.yaml
+      contract: design/DESIGN.md
+      handoff: design/handoff
+      surfaces:
+        - id: pipeline-board
+          density: dense
+          states:
+            - empty
+            - loading
+            - error
+            - populated
+          primary_action: advance-opportunity
+        - id: scout-inbox
+          density: dense
+          states:
+            - empty
+            - loading
+            - error
+            - populated
+          primary_action: run-scout
+        - id: opportunity-detail
+          density: spacious
+          states:
+            - empty
+            - loading
+            - error
+            - populated
+          primary_action: advance-opportunity
+        - id: profile
+          density: spacious
+          states:
+            - empty
+            - loading
+            - error
+            - populated
+          primary_action: save-profile
+      target_stack: vite-react-tailwind
+    external_sources: []
+    verification:
+      test_suite: src/__tests__/client.test.tsx
+      scenarios:
+        - id: SC-01
+          given: opportunities spread across several stages
+          when: the board is rendered
+          then: each column lists only its own stage and every opportunity appears once
+          test_name: the board puts every opportunity in exactly one stage column
+        - id: SC-02
+          given: a card at lead
+          when: it is moved to drafting
+          then: onAdvance is called with that id and stage
+          test_name: moving a card requests the engine transition
+        - id: SC-03
+          given: a card at won
+          when: a move is attempted
+          then: the board is unchanged and no transition is requested
+          test_name: the board refuses a move the engine would reject
+        - id: SC-04
+          given: scored listings with different scores
+          when: the inbox is rendered
+          then: they appear highest first with their reasons visible
+          test_name: the inbox ranks by score and shows why
+        - id: SC-05
+          given: no opportunities at all
+          when: the board is rendered
+          then: an empty state naming the next action is shown and no placeholder rows
+            appear
+          test_name: an empty board shows a real empty state, not sample rows
+        - id: SC-06
+          given: a completed scout run with one failed source
+          when: the inbox is rendered
+          then: each source outcome is reported including the failure
+          test_name: the inbox reports every source outcome after a run
+        - id: SC-07
+          given: the built stylesheet and components
+          when: they are scanned for colour and size values
+          then: every value resolves to a design token and no literal remains
+          test_name: every visual value comes from a design token
+tasks:
+  core/opportunity:
+    target_module: core/opportunity
+    context:
+      constitution_articles:
+        - ART-01
+        - ART-02
+        - ART-03
+        - ART-04
+      spec: core.opportunity.spec.yaml
+      upstream_exports: {}
+    deliverables:
+      - src/core/opportunity.js
+      - test/opportunity.test.js
+    execution_gate:
+      command: node --test test/opportunity.test.js
+      success_criteria: Exit code 0 with one passing test per verification scenario,
+        each named exactly as its test_name.
+      timeout_minutes: 10
+    budget:
+      max_attempts: 2
+  core/match:
+    target_module: core/match
+    context:
+      constitution_articles:
+        - ART-01
+        - ART-02
+        - ART-04
+      spec: core.match.spec.yaml
+      upstream_exports:
+        core/opportunity:
+          - STAGES
+          - createOpportunity
+          - advance
+          - canAdvance
+          - isTerminal
+    deliverables:
+      - src/core/match.js
+      - test/match.test.js
+    execution_gate:
+      command: node --test test/match.test.js
+      success_criteria: Exit code 0 with one passing test per verification scenario.
+        Scoring is deterministic, so a repeated run gives identical scores.
+      timeout_minutes: 10
+    budget:
+      max_attempts: 2
+  core/parse:
+    target_module: core/parse
+    context:
+      constitution_articles:
+        - ART-01
+        - ART-02
+        - ART-04
+        - ART-08
+      spec: core.parse.spec.yaml
+      upstream_exports:
+        core/opportunity:
+          - STAGES
+          - createOpportunity
+          - advance
+          - canAdvance
+          - isTerminal
+    deliverables:
+      - src/core/parse.js
+      - test/parse.test.js
+    execution_gate:
+      command: node --test test/parse.test.js
+      success_criteria: Exit code 0 with one passing test per verification scenario. A
+        field the parser could not read appears in `missing`; it is never filled
+        with a guess.
+      timeout_minutes: 10
+    budget:
+      max_attempts: 2
+  infra/feeds:
+    target_module: infra/feeds
+    context:
+      constitution_articles:
+        - ART-02
+        - ART-04
+        - ART-06
+      spec: infra.feeds.spec.yaml
+      upstream_exports:
+        core/opportunity:
+          - STAGES
+          - createOpportunity
+          - advance
+          - canAdvance
+          - isTerminal
+        core/parse:
+          - parsePost
+          - parseRate
+          - parseBudget
+          - extractSkills
+    deliverables:
+      - src/infra/feeds.js
+      - test/feeds.test.js
+    execution_gate:
+      command: node --test test/feeds.test.js
+      success_criteria: Exit code 0 with one passing test per verification scenario,
+        and every test supplies its own fetch function so the suite makes no
+        real network request. A request to any host outside the shipped source
+        list is a failure, not a warning.
+      timeout_minutes: 10
+    budget:
+      max_attempts: 2
+  infra/store:
+    target_module: infra/store
+    context:
+      constitution_articles:
+        - ART-02
+        - ART-04
+        - ART-05
+      spec: infra.store.spec.yaml
+      upstream_exports:
+        core/opportunity:
+          - STAGES
+          - createOpportunity
+          - advance
+          - canAdvance
+          - isTerminal
+    deliverables:
+      - src/infra/store.js
+      - test/store.test.js
+    execution_gate:
+      command: node --test test/store.test.js
+      success_criteria: Exit code 0 with one passing test per verification scenario,
+        using node:sqlite against ':memory:' or a temporary file. No test leaves
+        a database behind.
+      timeout_minutes: 10
+    budget:
+      max_attempts: 2
+  ui/client:
+    target_module: ui/client
+    context:
+      constitution_articles:
+        - ART-02
+        - ART-04
+        - ART-05
+        - ART-07
+        - ART-08
+      spec: ui.client.spec.yaml
+      upstream_exports:
+        core/opportunity:
+          - STAGES
+          - createOpportunity
+          - advance
+          - canAdvance
+          - isTerminal
+        core/match:
+          - scoreOpportunity
+          - rankOpportunities
+        infra/store:
+          - openStore
+          - saveOpportunity
+          - listOpportunities
+          - saveProfile
+          - loadProfile
+    deliverables:
+      - package.json
+      - vite.config.ts
+      - index.html
+      - src/main.tsx
+      - src/App.tsx
+      - src/view-model.ts
+      - src/components/PipelineBoard.tsx
+      - src/components/ScoutInbox.tsx
+      - src/components/OpportunityDetail.tsx
+      - src/components/ProfileForm.tsx
+      - src/data/copy.ts
+      - src/styles.css
+      - src/__tests__/client.test.tsx
+    execution_gate:
+      command: npm install --no-audit --no-fund --silent && npm run build && npm run
+        test:unit
+      success_criteria: Exit code 0. The production build compiles, and one passing
+        test exists per verification scenario named exactly as its test_name.
+        Interface copy lives in src/data/copy.ts rather than inline in
+        components, and every navigation target resolves.
+      timeout_minutes: 15
+    budget:
+      max_attempts: 2
+topo_order:
+  - core/opportunity
+  - core/match
+  - core/parse
+  - infra/feeds
+  - infra/store
+  - ui/client

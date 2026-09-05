@@ -39,6 +39,59 @@ export interface LintInput {
   latestArtifactEdit?: string | null;
 }
 
+
+/* ------------------------------------------------------------------ */
+/* LINT-36 — a surface cannot depend on a runtime that cannot host it. */
+/* ------------------------------------------------------------------ */
+
+/** Things that only exist in a browser, or only make sense targeting one. */
+const BROWSER_RUNTIME = /\b(browser|dom|vite|react|preact|svelte|vue|angular|next|nuxt|astro|remix|solid)\b/i;
+/** Things that only exist in Node. */
+const NODE_RUNTIME = /\b(node|node\d+|bun|deno|electron-main)\b/i;
+
+export interface RuntimeEnvelope { browser: boolean; node: boolean; declared: boolean }
+
+/**
+ * What environments a declared `runtime` string claims to run in.
+ *
+ * The field is free text, so this reads it conservatively: a claim is only
+ * made when the text names something recognisable, and `declared: false`
+ * means the rule stays silent rather than guessing.
+ */
+export function runtimeEnvelope(runtime: string | undefined): RuntimeEnvelope {
+  const text = runtime ?? '';
+  const browser = BROWSER_RUNTIME.test(text);
+  const node = NODE_RUNTIME.test(text);
+  return { browser, node, declared: browser || node };
+}
+
+/**
+ * Whether `dependent` can legitimately import from `dependency`.
+ *
+ * A browser surface importing a Node-only module is the failure this exists
+ * for, and it was live: ui/client declared "vite, react 19, tailwind 4" and
+ * depended on infra/store, which declared "esm-only, node24" — no browser.
+ * Both facts were written in the blueprint and nothing compared them. The
+ * worker did exactly as told, Vite left the bare specifier in place, and the
+ * shipped bundle opened with `import{DatabaseSync}from"node:sqlite"`, which no
+ * browser can load.
+ *
+ * The code plane's gate could not catch it: `vite build` succeeds because it
+ * externalises unknown specifiers, and the unit tests pass because vitest runs
+ * in Node, where node:sqlite is real.
+ */
+export function runtimeConflict(
+  dependent: RuntimeEnvelope,
+  dependency: RuntimeEnvelope,
+): string | null {
+  if (!dependent.declared || !dependency.declared) return null;
+  // A browser-targeted surface needs everything it imports to run in a browser.
+  if (dependent.browser && !dependency.browser) {
+    return 'is browser-targeted, but this dependency declares no browser runtime';
+  }
+  return null;
+}
+
 const err = (id: string, where: string, message: string): Finding => ({ id, severity: 'error', message, where });
 const warn = (id: string, where: string, message: string): Finding => ({ id, severity: 'warn', message, where });
 
@@ -313,6 +366,26 @@ export function lint(input: LintInput): LintResult {
       }
     }
     if (!boundary.exports.length) findings.push(warn('LINT-06', 'system.manifest.yaml', `Boundary "${boundary.domain}" exports nothing.`));
+  }
+
+  /* LINT-36: the DAG says what may import what; the runtimes say what CAN.
+     Both were declared and nothing compared them, so a browser surface
+     depended on a node-only module and shipped a bundle opening with
+     `import{DatabaseSync}from"node:sqlite"`. Neither `vite build` nor a
+     vitest suite can see that: the bundler externalises the specifier and
+     the tests run in Node, where it resolves. */
+  for (const boundary of boundaries) {
+    const dependent = runtimeEnvelope(input.specs?.[boundary.domain]?.runtime);
+    for (const dep of boundary.depends_on) {
+      const dependency = runtimeEnvelope(input.specs?.[dep]?.runtime);
+      const conflict = runtimeConflict(dependent, dependency);
+      if (!conflict) continue;
+      findings.push(err('LINT-36', 'system.manifest.yaml',
+        `Boundary "${boundary.domain}" ${conflict}: "${dep}" declares runtime "${input.specs?.[dep]?.runtime ?? ''}". `
+        + `A bundler will leave its node-only imports in place and the build will still succeed, so this fails at load `
+        + `in the browser and nowhere earlier. Give "${dep}" a browser-capable runtime, put a port between them, or `
+        + `move the dependency off the surface.`));
+    }
   }
 
   /* LINT-04 acyclicity */

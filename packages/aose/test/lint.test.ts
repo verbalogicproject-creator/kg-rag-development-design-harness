@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { lint, lintDir, parseSignature, splitUnion, classifyReturn, resolveAlias, findCycle, topoOrder } from '../src/lint.ts';
+import { lint, lintDir, parseSignature, splitUnion, classifyReturn, resolveAlias, findCycle, topoOrder, runtimeEnvelope, runtimeConflict } from '../src/lint.ts';
 import type { LintInput } from '../src/lint.ts';
 
 const ids = (result: { errors: { id: string }[]; warnings: { id: string }[] }) =>
@@ -274,4 +274,42 @@ test('LINT-09 accepts a Result imported from an upstream domain', () => {
     contracts: { 'load(u: string): Result<Item, string>': { kind: 'transition', precondition: 'p', postcondition: 'q', errors: [] } },
   });
   assert.ok(lint(base({ specs: { 'core/engine': neither } })).errors.some((f) => f.id === 'LINT-09'));
+});
+
+/* ---- LINT-36: the DAG says what may import; the runtimes say what can ---- */
+
+test('runtimeEnvelope reads a free-text runtime conservatively', () => {
+  assert.deepEqual(runtimeEnvelope('vite, react 19, tailwind 4, typescript'),
+    { browser: true, node: false, declared: true });
+  assert.deepEqual(runtimeEnvelope('esm-only, node24'),
+    { browser: false, node: true, declared: true });
+  assert.deepEqual(runtimeEnvelope('esm-only, node24, browser'),
+    { browser: true, node: true, declared: true });
+  // Nothing recognisable means no claim, so the rule stays silent rather than
+  // guessing at free text.
+  assert.equal(runtimeEnvelope('whatever runtime').declared, false);
+  assert.equal(runtimeEnvelope(undefined).declared, false);
+});
+
+test('a browser surface may not depend on a node-only module', () => {
+  /* The real defect, from the real build. ui/client declared "vite, react 19,
+   * tailwind 4" and depended on infra/store, which declared "esm-only,
+   * node24". Both were in the blueprint; nothing compared them. The shipped
+   * bundle opened with `import{DatabaseSync}from"node:sqlite"` and could not
+   * load in any browser — while `vite build` exited 0, because a bundler
+   * externalises specifiers it does not know, and vitest passed, because it
+   * runs in Node where node:sqlite is real. */
+  const browser = runtimeEnvelope('vite, react 19');
+  const nodeOnly = runtimeEnvelope('esm-only, node24');
+  const both = runtimeEnvelope('esm-only, node24, browser');
+
+  assert.match(runtimeConflict(browser, nodeOnly) ?? '', /no browser runtime/);
+  assert.equal(runtimeConflict(browser, both), null, 'a dual-runtime module is fine on a surface');
+  assert.equal(runtimeConflict(nodeOnly, both), null, 'node importing dual-runtime is fine');
+  assert.equal(runtimeConflict(nodeOnly, nodeOnly), null, 'node importing node is fine');
+  // A node module importing a browser-only one is not this rule's business:
+  // it is a different mistake and this rule must not claim to catch it.
+  assert.equal(runtimeConflict(nodeOnly, browser), null);
+  // No declaration, no claim.
+  assert.equal(runtimeConflict(browser, runtimeEnvelope('mystery')), null);
 });

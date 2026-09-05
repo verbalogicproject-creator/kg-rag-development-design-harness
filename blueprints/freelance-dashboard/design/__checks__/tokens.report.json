@@ -49,21 +49,21 @@
       "id": "DSC-04",
       "test_name": "every interactive element has a visible focus indicator",
       "status": "pass",
-      "detail": "59 interactive element(s) focused across 8 screen(s)",
+      "detail": "59 interactive element(s) focused across 8 of 8 screen(s)",
       "findings": []
     },
     {
       "id": "DSC-05",
       "test_name": "reduced motion collapses every transition",
       "status": "pass",
-      "detail": "50 animated element(s) checked across 8 screen(s)",
+      "detail": "50 animated element(s) checked across 8 of 8 screen(s)",
       "findings": []
     },
     {
       "id": "DSC-09",
       "test_name": "no surface overflows horizontally at any declared width",
       "status": "pass",
-      "detail": "8 screen(s) measured at 360, 768, 1440px",
+      "detail": "24 of 24 screen/width combination(s) measured at 360, 768, 1440px",
       "findings": []
     }
   ],
