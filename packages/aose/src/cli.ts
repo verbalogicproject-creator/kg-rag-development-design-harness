@@ -7,12 +7,13 @@
  * anything a human should decide: approval is a command a person runs.
  */
 import { parseArgs } from 'node:util';
-import { readFileSync, existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
+import { resolve, join } from 'node:path';
 import YAML from 'yaml';
 import { Harness } from './harness.ts';
 import { lintDir } from './lint.ts';
 import { formatConverge } from './converge.ts';
+import { designCheck, formatReport } from './designcheck.ts';
 import { ADAPTERS } from './adapters/index.ts';
 
 const USAGE = `aose — Agent-Oriented Software Engineering harness v2
@@ -40,6 +41,7 @@ const USAGE = `aose — Agent-Oriented Software Engineering harness v2
     design-studio <slug>           Print the command that opens the studio for review
     design-status <slug>           Screens, decisions, gate state and blockers
     design-handoff <slug>          Export the frozen handoff (the studio gates this)
+    design-check <slug>            Run the design gate: tokens on scale, contrast in both modes
     design-lint <slug> --domain D --url U
                                    Check a built surface against the frozen contract
 
@@ -166,6 +168,18 @@ try {
         process.stdout.write(result.ok ? `\nPASS — 0 errors, ${result.warnings.length} warning(s)\n` : `\nFAIL — ${result.errors.length} error(s)\n`);
       }
       process.exitCode = result.ok ? 0 : 1;
+      break;
+    }
+    case 'design-check': {
+      // The design plane's execution_gate. Writes its report beside the
+      // contract so converge can read evidence rather than a claim.
+      const dir = harness.dir(slug);
+      const report = designCheck(dir);
+      const out = join(dir, 'design', '__checks__');
+      mkdirSync(out, { recursive: true });
+      writeFileSync(join(out, 'tokens.report.json'), `${JSON.stringify(report, null, 2)}\n`);
+      process.stdout.write(json ? `${JSON.stringify(report, null, 2)}\n` : `${formatReport(report)}\n`);
+      process.exitCode = report.ok ? 0 : 1;
       break;
     }
     case 'review': {

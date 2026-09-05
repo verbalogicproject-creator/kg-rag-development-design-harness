@@ -1,0 +1,205 @@
+design_system:
+  name: Freelance-Dashboard
+  version: 1
+
+  # The studio owns these files. This contract binds to them and freezes them.
+  # tokens_hash must equal design.json.tokensHash or LINT-33 fails: a tokens.css
+  # edited after approval is exactly the drift this catches.
+  contract: design/DESIGN.md
+  tokens: design/tokens.css
+  tokens_hash: sha256:c0951e1a1aa3f4a673ed8cc85a06b79ff7173556982d91545822ccf8e74bf58f
+
+  # ── ART DIRECTION ─────────────────────────────────────────────────────────
+  # Intent. Scored at review (ART-11), never gated — "is this good?" is not a
+  # question a gate can answer. What a gate can answer is anti_direction.
+  direction:
+    # One of the five canonical families in
+    # ls-design-art-direction/references/direction-families.md. Chosen, not invented.
+    family: precise-technical
+    counterpoint: editorial-restraint
+    thesis: >-
+      A quiet instrument for someone who works alone. The board and the inbox are
+      dense and exact, because the work is comparing numbers — rates, fit scores,
+      stages. The detail and profile surfaces slow down and read like a document.
+      One warm accent marks the single next action on any view and appears nowhere
+      else. It should read as a considered tool, not a product demo.
+    signature: >-
+      The fit score is one object with one shape everywhere it appears — board card,
+      inbox row, detail header — and it always expands into the reasons behind it.
+      Identity is tied to the thing the product is actually for.
+    voice: [precise, calm, unfussy]
+    evidence:
+      - idea.yaml audience — a solo developer working offline on their own machine
+      - idea.yaml REQ — listings ranked by fit, with the reasons shown
+      - core.match contracts — every score carries its reasons, so the UI must show them
+
+    # ── The falsifiable half. Each entry is answerable yes/no against a build.
+    # Sources are named because a reviewer must be able to check the rule, not
+    # just trust the list (ART-11: a review that cannot cite an item has reviewed nothing).
+    anti_direction:
+      - id: AD-01
+        rule: >-
+          The convergence composite: a warm off-white ground with a high-contrast
+          display serif and a single clay accent, arriving together.
+        threshold: 3
+        components:
+          - "ground in {#f4f1ea, #f5f1ea, #f7f5f1, #fbf8f1, #F7F5F2}"
+          - "display face in {Fraunces, Instrument Serif} chosen as a default"
+          - "accent in {#d97757, #b6553a, #b08947, #9a2436, #A0552A}"
+          - "warm near-black text in {#1a1714, #1a1814, #1b1814, #1A1917}"
+        source: ls-design/references/natural-color-and-humanization.md — "The named bundle"
+        note: >-
+          A brief that names these wins outright. What this catches is the same
+          combination arriving whatever the subject. Matching at or above the
+          threshold demands a recorded justification, not a redesign.
+      - id: AD-02
+        rule: Decorative terminal clichés that the product has not earned.
+        source: ls-design-art-direction/references/direction-families.md — Precise technical
+        note: >-
+          Named explicitly because this project chose precise-technical, and this is
+          the failure mode that family warns about.
+      - id: AD-03
+        rule: >-
+          Monospace on a navigation item or a marketing label, where the content is
+          not tabular or numeric.
+        source: ls-design/references/natural-color-and-humanization.md — "Monospace for labels"
+        note: Correct on rates and scores. Costume anywhere else.
+      - id: AD-04
+        rule: Generic SaaS dashboard signals — purple or blue gradient, glow shadow, card inside card.
+        source: project decision
+      - id: AD-05
+        rule: More than one decorative typeface.
+        source: ls-design/references/core-principles.md — Typography
+      - id: AD-06
+        rule: >-
+          Invented content of any kind — placeholder avatars, sample rows, fake
+          sparklines, a metric with no traceable source.
+        source: constitution ART-08, and idea.yaml REQ "never placeholder rows"
+      - id: AD-07
+        rule: Motion that exists to be noticed rather than to explain a state change.
+        source: ls-design/references/core-principles.md — Motion
+      - id: AD-08
+        rule: One shadow value under every card, or one radius on every element regardless of material.
+        source: ls-design/references/natural-color-and-humanization.md — countable observations
+
+  # ── SCALES ────────────────────────────────────────────────────────────────
+  # Declared as closed sets, not as a ratio. ART-09 is about membership: a value
+  # is legal because it is in the set, and a one-off is a defect even as a token.
+  scales:
+    type:
+      unit: rem
+      steps:
+        caption:    "0.8125rem"
+        label:      "0.875rem"
+        body-small: "0.9375rem"
+        body:       "1.0625rem"
+        h3:         "1.1875rem"
+        h2:         "1.5rem"
+        h1:         "clamp(1.875rem, 4vw, 2.75rem)"
+        display:    "clamp(2.5rem, 6vw, 4.5rem)"
+      fluid_endpoints_must_be_on_scale: true
+      measure: { min: 60, max: 72 }        # characters, for continuous prose
+    spacing:
+      base: "4px"
+      steps: ["0.25rem", "0.5rem", "1rem", "1.5rem", "2.5rem", "4rem", "6rem"]
+    radius:
+      steps: ["0.25rem", "0.625rem", "1.25rem", "9999px"]
+    motion:
+      durations: { instant: "0ms", fast: "120ms", base: "200ms", slow: "320ms" }
+      easings:
+        standard:   "cubic-bezier(0.2, 0, 0, 1)"
+        decelerate: "cubic-bezier(0, 0, 0, 1)"
+      reduced_motion: required
+
+  palette:
+    max_hues: 3                            # excluding the neutral ramp
+    neutral_ramp: [background, surface, surface-raised, border, border-strong, content-muted, content]
+    semantic: [primary, accent, success, warning, danger, focus]
+    modes: [light, dark]
+    accent_budget:
+      rule: The accent marks the single primary action on a view.
+      max_per_surface: 1
+
+  # ── ACCESSIBILITY ─────────────────────────────────────────────────────────
+  # Promoted verbatim from design.json.contrastPairs, which has declared these
+  # since the project was initialized and has never had them measured.
+  accessibility:
+    contrast_pairs:
+      - { foreground: content,       background: background, target: 4.5 }
+      - { foreground: content-muted, background: background, target: 4.5 }
+      - { foreground: content,       background: surface,    target: 4.5 }
+      - { foreground: on-primary,    background: primary,    target: 4.5 }
+      - { foreground: on-accent,     background: accent,     target: 4.5 }
+      - { foreground: border-strong, background: surface,    target: 3.0 }
+      - { foreground: focus,         background: background, target: 3.0 }
+    modes_must_both_pass: true
+    min_touch_target: "44px"
+    focus_visible: required
+    baseline: WCAG 2.1 AA
+    target: WCAG 2.2 AA
+
+  required_states: [empty, loading, error, populated]
+
+  # ── REQUIREMENTS ──────────────────────────────────────────────────────────
+  # EARS, the same grammar as every functional spec. Each is verified by a
+  # scenario whose test_name the gate must find in the output (ART-04).
+  requirements:
+    - id: DREQ-01
+      ears: WHEN any surface renders THE SYSTEM SHALL resolve every colour, size, radius and duration to a token declared in the design contract.
+      enforcement: gate
+      verified_by: [DSC-01]
+    - id: DREQ-02
+      ears: WHEN a declared contrast pair is measured in either mode THE SYSTEM SHALL meet or exceed its target ratio.
+      enforcement: gate
+      verified_by: [DSC-02]
+    - id: DREQ-03
+      ears: WHERE a surface has no data THE SYSTEM SHALL render the empty state named for that surface, never placeholder rows.
+      enforcement: gate
+      verified_by: [DSC-03]
+    - id: DREQ-04
+      ears: WHEN an element receives keyboard focus THE SYSTEM SHALL render a focus indicator meeting the focus contrast target.
+      enforcement: gate
+      verified_by: [DSC-04]
+    - id: DREQ-05
+      ears: WHILE the user has requested reduced motion THE SYSTEM SHALL complete every transition at the instant duration.
+      enforcement: gate
+      verified_by: [DSC-05]
+    - id: DREQ-06
+      ears: WHEN the built surfaces are reviewed against the art direction THE SYSTEM SHALL exhibit no anti_direction item.
+      enforcement: review
+      verified_by: [DSC-06]
+
+  verification:
+    check_suite: design/__checks__/design.test.ts
+    report: design/__checks__/tokens.report.json
+    scenarios:
+      - id: DSC-01
+        given: the built stylesheet and every component source
+        when: scanned for colour, length, radius and duration literals
+        then: every value resolves to a declared token and no literal remains
+        test_name: every visual value comes from a design token
+      - id: DSC-02
+        given: the token set in light and dark mode
+        when: each declared contrast pair is measured
+        then: every pair meets its target ratio in both modes
+        test_name: every declared contrast pair meets its target in both modes
+      - id: DSC-03
+        given: each surface rendered with no data
+        when: the empty state is inspected
+        then: it names a concrete next action and renders no placeholder row
+        test_name: every surface renders a real empty state
+      - id: DSC-04
+        given: every interactive element on every surface
+        when: it receives keyboard focus
+        then: a focus indicator meeting the focus contrast target is present
+        test_name: every interactive element has a visible focus indicator
+      - id: DSC-05
+        given: prefers-reduced-motion is set
+        when: any transition runs
+        then: its duration resolves to the instant token
+        test_name: reduced motion collapses every transition
+      - id: DSC-06
+        given: the approved screens and the anti_direction list
+        when: each entry is scored against the build
+        then: no anti_direction item is present, or each present item cites a recorded justification
+        test_name: the build exhibits no anti-direction

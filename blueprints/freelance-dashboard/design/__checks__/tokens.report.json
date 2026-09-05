@@ -1,0 +1,24 @@
+{
+  "blueprint": "freelance-dashboard",
+  "tokens_hash": "sha256:c0951e1a1aa3f4a673ed8cc85a06b79ff7173556982d91545822ccf8e74bf58f",
+  "ok": true,
+  "checks": [
+    {
+      "id": "DSC-01",
+      "test_name": "every visual value comes from a design token",
+      "status": "vacuous",
+      "detail": "no surface source exists yet — nothing to scan",
+      "findings": []
+    },
+    {
+      "id": "DSC-02",
+      "test_name": "every declared contrast pair meets its target in both modes",
+      "status": "pass",
+      "detail": "14/14 pair-modes measured across light and dark",
+      "findings": []
+    }
+  ],
+  "contrast_failures": [],
+  "off_scale_values": [],
+  "unresolved_literals": []
+}

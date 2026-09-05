@@ -1,9 +1,26 @@
 module: ui/client
 runtime: vite, react 19, tailwind 4, typescript, vitest with testing-library
 design:
+  system: design.system.yaml
   contract: design/DESIGN.md
-  surfaces: [pipeline-board, scout-inbox, opportunity-detail, profile]
   target_stack: vite-react-tailwind
+  surfaces:
+    - id: pipeline-board
+      density: dense
+      states: [empty, loading, error, populated]
+      primary_action: advance-opportunity
+    - id: scout-inbox
+      density: dense
+      states: [empty, loading, error, populated]
+      primary_action: run-scout
+    - id: opportunity-detail
+      density: spacious
+      states: [empty, loading, error, populated]
+      primary_action: advance-opportunity
+    - id: profile
+      density: spacious
+      states: [empty, loading, error, populated]
+      primary_action: save-profile
 requirements:
   - id: REQ-01
     ears: WHEN the board is rendered THE SYSTEM SHALL show one column per pipeline stage, each listing only the opportunities at that stage.

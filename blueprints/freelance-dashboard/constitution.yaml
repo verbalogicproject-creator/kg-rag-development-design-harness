@@ -38,6 +38,18 @@ constitution:
       title: No invented content ships
       rule: Fixture values from generated screens are quarantined. Real content or an explicit empty state, never a plausible-looking invention.
       enforcement: lint
+    - id: ART-09
+      title: Scales are closed sets
+      rule: Every visual value is a member of a declared scale. A one-off size, duration or radius is a defect even when it is expressed as a token.
+      enforcement: gate
+    - id: ART-10
+      title: Both modes ship
+      rule: Every declared contrast pair meets its target in light and in dark. A mode that was never measured has not shipped.
+      enforcement: gate
+    - id: ART-11
+      title: The direction is falsifiable
+      rule: Every design system declares an anti_direction, and every entry cites its source. A review that cannot name the item it is judging against has reviewed nothing.
+      enforcement: review
   allowlists:
     - id: feed_sources
       rationale: >-

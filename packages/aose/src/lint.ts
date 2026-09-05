@@ -453,6 +453,72 @@ export function lint(input: LintInput): LintResult {
           }
         }
       }
+      /* LINT-32..35: the checkable design contract.
+         LINT-27/28 above prove files exist. These prove the contract can
+         actually bite: that it is present, that it still describes the tokens
+         it was approved against, that every surface says what it is, and that
+         it declares the negative constraints a review can cite. */
+      const systemPath = spec.design.system;
+      if (systemPath) {
+        if (!isContained(input.dir, systemPath)) {
+          findings.push(err('LINT-32', where, `design.system "${systemPath}" resolves outside the project.`));
+        } else if (!existsSync(join(input.dir, systemPath))) {
+          findings.push(err('LINT-32', where, `design.system "${systemPath}" does not exist. It is the design plane's constitution; without it nothing about this surface is checkable.`));
+        } else {
+          let system: any = null;
+          try { system = YAML.parse(readFileSync(join(input.dir, systemPath), 'utf8'))?.design_system ?? null; }
+          catch (error) { findings.push(err('LINT-32', where, `design.system "${systemPath}" is not readable YAML: ${(error as Error).message}`)); }
+
+          if (system) {
+            /* LINT-33: drift. design.json owns tokensHash; the contract froze one.
+               A tokens.css edited after approval is exactly what this catches, and
+               it is the design-plane twin of an approval superseded by a later edit. */
+            const declared = String(system.tokens_hash ?? '').replace(/^sha256:/, '');
+            const statePath = join(input.dir, 'design', 'design.json');
+            if (!declared) {
+              findings.push(err('LINT-33', where, 'design.system declares no tokens_hash, so nothing binds the contract to the tokens it was approved against.'));
+            } else if (existsSync(statePath)) {
+              try {
+                const actual = String(JSON.parse(readFileSync(statePath, 'utf8'))?.tokensHash ?? '');
+                if (actual && actual !== declared) {
+                  findings.push(err('LINT-33', where, `tokens drift: design.system froze ${declared.slice(0, 12)}… but design.json now reports ${actual.slice(0, 12)}…. The tokens changed after the contract was written; re-approve them or restore the frozen set.`));
+                }
+              } catch { /* design.json unreadable is LINT-27's business, not this rule's */ }
+            }
+
+            /* LINT-34: a surface that does not say what it is cannot be checked
+               against required_states, so the state scenarios would silently pass. */
+            const required: string[] = Array.isArray(system.required_states) ? system.required_states : [];
+            for (const surface of spec.design.surfaces ?? []) {
+              if (typeof surface === 'string') {
+                findings.push(warn('LINT-34', where, `surface "${surface}" is a bare name. Give it a density and the states it must prove, or it inherits ${required.length} required state(s) it was never checked for.`));
+                continue;
+              }
+              const missing = required.filter((state) => !(surface.states ?? []).includes(state));
+              if (missing.length && surface.states?.length) {
+                findings.push(warn('LINT-34', where, `surface "${surface.id}" omits required state(s): ${missing.join(', ')}. Declare them, or say why they do not apply.`));
+              }
+            }
+
+            /* LINT-35 / ART-11: a review with nothing to cite has reviewed nothing. */
+            const anti = system.direction?.anti_direction;
+            if (!Array.isArray(anti) || anti.length === 0) {
+              findings.push(err('LINT-35', where, 'design.system declares no anti_direction. "Is this good?" cannot be scored; a named list of what the design must not be is the only checkable half (ART-11).'));
+            } else {
+              for (const entry of anti) {
+                if (!entry?.source) {
+                  findings.push(warn('LINT-35', where, `anti_direction "${entry?.id ?? '?'}" cites no source. A reviewer must be able to check the rule, not just trust the list.`));
+                }
+                if (entry?.threshold && (entry.components?.length ?? 0) < entry.threshold) {
+                  findings.push(err('LINT-35', where, `anti_direction "${entry.id}" needs ${entry.threshold} matching components but lists only ${entry.components?.length ?? 0}. It can never fire.`));
+                }
+              }
+            }
+          }
+        }
+      } else if (isSurface) {
+        findings.push(warn('LINT-32', where, `"${boundary.domain}" binds a design contract but no design.system. Only file existence is checked; nothing measures contrast, scales or direction.`));
+      }
     } else if (isSurface) {
       findings.push(warn('LINT-27', where, `"${boundary.domain}" is a surface domain with no design binding. Add a design block naming its contract, or the worker will invent the visual language.`));
     }

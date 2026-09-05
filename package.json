@@ -2,15 +2,21 @@
   "name": "fable-blue",
   "version": "0.1.0",
   "private": true,
-  "description": "AOSE v2 — the unified idea → blueprint → implementation harness (merges the Codex process layer and the Antigravity artifact layer, grounded in verified research)",
+  "description": "AOSE v2 \u2014 the unified idea \u2192 blueprint \u2192 implementation harness (merges the Codex process layer and the Antigravity artifact layer, grounded in verified research)",
   "type": "module",
-  "engines": { "node": ">=24" },
-  "workspaces": ["packages/*", "examples/*"],
+  "engines": {
+    "node": ">=24"
+  },
+  "workspaces": [
+    "packages/*",
+    "examples/*"
+  ],
   "scripts": {
     "test": "node --test \"packages/aose/test/**/*.test.ts\" && npm --prefix examples/tictactoe-vanilla-es6 test",
     "test:harness": "node --test \"packages/aose/test/**/*.test.ts\"",
     "aose": "node packages/aose/src/cli.ts",
     "lint": "node packages/aose/src/cli.ts lint blueprints/tictactoe",
+    "design:check": "node packages/aose/src/cli.ts design-check freelance-dashboard",
     "proof": "node scripts/proof.mjs",
     "xagent": "node packages/aose/src/cli.ts xagent tictactoe --adapters claude,codex,agy"
   }

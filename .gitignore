@@ -3,3 +3,8 @@ node_modules/
 .aose/worktrees/
 .aose/runs/
 .vouch/
+
+# Local credentials — never commit
+.env
+.env.*
+!.env.example

@@ -194,6 +194,139 @@ export const ScenarioSchema = z.object({
   test_name: nonEmpty,
 });
 
+/* ------------------------------------------------------------------ */
+/* design.system.yaml — the design plane's constitution.               */
+/*                                                                     */
+/* Every other plane here has declare -> verify -> gate. The design    */
+/* plane had declare -> nothing -> does-the-file-exist, which is how   */
+/* design.json could carry contrast targets from the day a project was */
+/* initialised without one of them ever being measured. This artifact  */
+/* is to design what constitution.yaml is to code, and it reuses that  */
+/* grammar rather than inventing a second one.                         */
+/* ------------------------------------------------------------------ */
+
+/** The five canonical families. A direction is chosen from these, never invented. */
+export const DIRECTION_FAMILIES = [
+  'editorial-restraint', 'precise-technical', 'tactile-human',
+  'cinematic-spatial', 'cultural-expressive',
+] as const;
+export const DirectionFamilySchema = z.enum(DIRECTION_FAMILIES);
+
+/**
+ * A negative constraint — the reason the design plane is checkable at all.
+ *
+ * "Is this good design?" cannot be scored, so scoring it yields noise. "Does
+ * this exhibit the convergence composite, or monospace as costume?" is
+ * answerable with a defensible yes or no. `threshold` carries the composite
+ * case, where the source rule is that any one value is legitimate and only the
+ * bundle is a problem, and the counted rules ("more than one per three
+ * sections") that a pairwise model cannot express at all.
+ */
+export const AntiDirectionSchema = z.object({
+  id: nonEmpty.regex(/^AD-\d{2}$/, 'anti-direction id must look like AD-01'),
+  rule: nonEmpty,
+  /** Fire only when at least this many `components` match. Absent means the rule fires alone. */
+  threshold: z.number().int().min(1).optional(),
+  components: z.array(nonEmpty).default([]),
+  /** Where the rule came from. ART-11: a review that cannot cite has reviewed nothing. */
+  source: nonEmpty,
+  note: z.string().default(''),
+});
+
+export const DesignDirectionSchema = z.object({
+  family: DirectionFamilySchema,
+  counterpoint: DirectionFamilySchema.optional(),
+  thesis: nonEmpty,
+  signature: z.string().default(''),
+  voice: z.array(nonEmpty).default([]),
+  evidence: z.array(nonEmpty).default([]),
+  anti_direction: z.array(AntiDirectionSchema).min(1),
+});
+
+/** A foreground/background pair and the ratio it must meet. Measured, never assumed. */
+export const ContrastPairSchema = z.object({
+  foreground: nonEmpty,
+  background: nonEmpty,
+  target: z.number().min(1).max(21),
+});
+
+export const DesignScalesSchema = z.object({
+  type: z.object({
+    unit: z.string().default('rem'),
+    steps: z.record(nonEmpty, nonEmpty),
+    fluid_endpoints_must_be_on_scale: z.boolean().default(true),
+    measure: z.object({ min: z.number(), max: z.number() }).optional(),
+  }),
+  spacing: z.object({ base: nonEmpty, steps: z.array(nonEmpty).min(2) }),
+  radius: z.object({ steps: z.array(nonEmpty).min(1) }),
+  motion: z.object({
+    durations: z.record(nonEmpty, nonEmpty),
+    easings: z.record(nonEmpty, nonEmpty).default({}),
+    reduced_motion: z.enum(['required', 'optional']).default('required'),
+  }),
+});
+
+export const DesignRequirementSchema = z.object({
+  id: nonEmpty.regex(/^DREQ-\d{2}$/, 'design requirement id must look like DREQ-01'),
+  ears: earsString,
+  enforcement: EnforcementSchema,
+  verified_by: z.array(nonEmpty.regex(/^DSC-\d{2}$/)).min(1),
+});
+
+export const DesignScenarioSchema = z.object({
+  id: nonEmpty.regex(/^DSC-\d{2}$/, 'design scenario id must look like DSC-01'),
+  given: nonEmpty,
+  when: nonEmpty,
+  then: nonEmpty,
+  test_name: nonEmpty,
+});
+
+export const DesignSystemSchema = z.object({
+  design_system: z.object({
+    name: nonEmpty,
+    version: z.number().int().min(1).default(1),
+    contract: nonEmpty,
+    tokens: nonEmpty,
+    /** Binds the contract to the exact tokens approved. Drift is LINT-33. */
+    tokens_hash: nonEmpty.regex(/^sha256:[0-9a-f]{64}$/, 'tokens_hash must be "sha256:" + 64 hex'),
+    direction: DesignDirectionSchema,
+    scales: DesignScalesSchema,
+    palette: z.object({
+      max_hues: z.number().int().min(1).max(8),
+      neutral_ramp: z.array(nonEmpty).min(2),
+      semantic: z.array(nonEmpty).default([]),
+      modes: z.array(z.enum(['light', 'dark'])).min(1),
+      accent_budget: z.object({
+        rule: nonEmpty,
+        max_per_surface: z.number().int().min(0),
+      }).optional(),
+    }),
+    accessibility: z.object({
+      contrast_pairs: z.array(ContrastPairSchema).min(1),
+      modes_must_both_pass: z.boolean().default(true),
+      min_touch_target: z.string().default('44px'),
+      focus_visible: z.enum(['required', 'optional']).default('required'),
+      baseline: z.string().default('WCAG 2.1 AA'),
+      target: z.string().default('WCAG 2.2 AA'),
+    }),
+    required_states: z.array(nonEmpty).min(1),
+    requirements: z.array(DesignRequirementSchema).min(1),
+    verification: z.object({
+      check_suite: nonEmpty,
+      report: nonEmpty,
+      scenarios: z.array(DesignScenarioSchema).min(1),
+    }),
+  }),
+});
+
+/** One surface, carrying the intent a bare name could not. */
+export const SurfaceSchema = z.object({
+  id: nonEmpty,
+  density: z.enum(['dense', 'spacious']).default('spacious'),
+  states: z.array(nonEmpty).default([]),
+  primary_action: z.string().default(''),
+});
+
 /**
  * The design plane's hook into a domain spec.
  *
@@ -201,11 +334,17 @@ export const ScenarioSchema = z.object({
  * frozen handoff the studio released. The harness treats that handoff exactly
  * as it treats an upstream domain's deliverables: frozen input a cold worker
  * receives and must not relitigate.
+ *
+ * `surfaces` takes a bare string or a full surface, so every blueprint written
+ * before design.system.yaml existed keeps validating and `compile` normalises
+ * the bare form rather than the author having to.
  */
 export const DesignBindingSchema = z.object({
+  /** Path to design.system.yaml. Absent means the surface has no checkable contract. */
+  system: z.string().optional(),
   contract: nonEmpty,
   handoff: z.string().optional(),
-  surfaces: z.array(nonEmpty).min(1),
+  surfaces: z.array(z.union([nonEmpty, SurfaceSchema])).min(1),
   target_stack: z.string().optional(),
 });
 
