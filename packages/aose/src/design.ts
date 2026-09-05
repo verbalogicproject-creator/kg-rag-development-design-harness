@@ -11,6 +11,7 @@
  * package is published, it falls back to running the repository directly.
  */
 import { execFileSync, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { containedPath, isContained } from './integrity.ts';
@@ -119,6 +120,38 @@ export function readDesignState(designRoot: string): DesignState {
       state.handoff_passed_gate = null;
       state.blockers.push('handoff/gate.json is unreadable, so the gate result cannot be trusted.');
     }
+  } else if (state.handoff_exists && existsSync(join(designRoot, 'handoff', 'design.json'))) {
+    /* The studio writes its gate result into the handoff's own design.json —
+       `gates.screens = { passed, at, handoffSha256 }` — and the harness was
+       looking only for a gate.json this studio version never emits, so a
+       properly gated handoff read as "gate state unknown".
+       
+       The flag alone would be a claim. It counts only when the shipped
+       `handoff.sha256` manifest verifies, which proves the files on disk are
+       the ones the gate was recorded against. That manifest was the other
+       thing being written and never read. */
+    try {
+      const doc = JSON.parse(readFileSync(join(designRoot, 'handoff', 'design.json'), 'utf8')) as
+        { gates?: { screens?: { passed?: boolean; handoffSha256?: string } }; status?: string };
+      const receipt = doc.gates?.screens;
+      const integrity = verifyHandoff(join(designRoot, 'handoff'));
+      if (receipt?.passed === true && integrity.intact) {
+        state.handoff_passed_gate = true;
+        state.handoff_digest = receipt.handoffSha256 ?? '';
+      } else if (receipt?.passed === true) {
+        state.handoff_passed_gate = null;
+        state.blockers.push(
+          `The studio recorded a passed screens gate, but the handoff no longer matches its own manifest`
+          + `${integrity.mismatches.length ? `: ${integrity.mismatches.slice(0, 3).join(', ')} changed` : ''}`
+          + `${integrity.missing.length ? `: ${integrity.missing.slice(0, 3).join(', ')} missing` : ''}`
+          + '. Re-export the handoff.');
+      } else {
+        state.handoff_passed_gate = false;
+      }
+    } catch {
+      state.handoff_passed_gate = null;
+      state.blockers.push('handoff/design.json is unreadable, so the gate result cannot be trusted.');
+    }
   } else if (state.handoff_exists) {
     const brief = join(designRoot, 'handoff', 'BRIEF.md');
     const body = existsSync(brief) ? readFileSync(brief, 'utf8') : '';
@@ -139,6 +172,51 @@ export function readDesignState(designRoot: string): DesignState {
 
   state.gate_can_pass = state.contract_exists && state.total_screens > 0 && pending.length === 0 && stale.length === 0;
   return state;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Handoff integrity — checking the hashes the studio already writes.  */
+/* ------------------------------------------------------------------ */
+
+export interface HandoffIntegrity {
+  manifest_present: boolean;
+  checked: number;
+  mismatches: string[];
+  missing: string[];
+  intact: boolean;
+}
+
+/**
+ * Verify a handoff against the `handoff.sha256` manifest the studio ships.
+ *
+ * The manifest was being written and nothing read it — the same gap this
+ * harness reported to the studio and then had itself. A hash nobody checks
+ * documents an intention; a hash that is checked is evidence, and it is what
+ * lets a machine-written "the gate passed" receipt mean anything, because the
+ * receipt describes a set of files and this proves those are the files.
+ */
+export function verifyHandoff(handoffDir: string): HandoffIntegrity {
+  const manifestPath = join(handoffDir, 'handoff.sha256');
+  const result: HandoffIntegrity = {
+    manifest_present: existsSync(manifestPath),
+    checked: 0, mismatches: [], missing: [], intact: false,
+  };
+  if (!result.manifest_present) return result;
+
+  for (const line of readFileSync(manifestPath, 'utf8').split('\n')) {
+    // `sha256sum` format: "<hex>  <path>", two spaces, path may contain spaces.
+    const match = /^([0-9a-f]{64})\s+(.+)$/.exec(line.trim());
+    if (!match) continue;
+    const [, expected, relative] = match;
+    const file = containedPath(handoffDir, relative);
+    if (!existsSync(file)) { result.missing.push(relative); continue; }
+    result.checked += 1;
+    const actual = createHash('sha256').update(readFileSync(file)).digest('hex');
+    if (actual !== expected) result.mismatches.push(relative);
+  }
+  result.intact = result.checked > 0 && result.mismatches.length === 0 && result.missing.length === 0;
+  return result;
 }
 
 /**

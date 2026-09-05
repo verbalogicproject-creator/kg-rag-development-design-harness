@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, realpathSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, realpathSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
-import { readDesignState, handoffSeed, parseLintBuild } from '../src/design.ts';
+import { readDesignState, handoffSeed, parseLintBuild, verifyHandoff } from '../src/design.ts';
 import { lint, sameOrigin, collectFixtureValues, undeclaredHosts } from '../src/lint.ts';
 import { containedPath, PathEscapeError, approvalDigest } from '../src/integrity.ts';
 import { converge } from '../src/converge.ts';
@@ -416,4 +417,87 @@ test('verifying a design does not change what was approved', () => {
   writeFileSync(join(design, 'tokens.css'), ':root{--ls-a:#000}\n');
   assert.notEqual(approvalDigest(root, [], design).value, approved,
     'editing the tokens must invalidate the approval');
+});
+
+/* ---- the handoff gate receipt, and why the flag alone is not evidence ---- */
+
+/** A handoff with a real sha256 manifest, as the studio ships one. */
+function handoff(files: Record<string, string>, gates: unknown): string {
+  const root = mkdtempSync(join(tmpdir(), 'aose-handoff-'));
+  const dir = join(root, 'handoff');
+  mkdirSync(dir, { recursive: true });
+  const lines: string[] = [];
+  for (const [name, body] of Object.entries(files)) {
+    mkdirSync(join(dir, name, '..'), { recursive: true });
+    writeFileSync(join(dir, name), body);
+    lines.push(`${createHash('sha256').update(body).digest('hex')}  ${name}`);
+  }
+  writeFileSync(join(dir, 'design.json'), JSON.stringify({ gates, status: 'approved', screens: [] }));
+  lines.push(`${createHash('sha256').update(readFileSync(join(dir, 'design.json'))).digest('hex')}  design.json`);
+  writeFileSync(join(dir, 'handoff.sha256'), `${lines.join('\n')}\n`);
+  writeFileSync(join(root, 'DESIGN.md'), '# c\n');
+  return root;
+}
+
+const PASSED = { screens: { passed: true, at: '2026-01-01', handoffSha256: 'abc123' } };
+
+test('a handoff verifies against the manifest the studio ships', () => {
+  // The manifest was being written and nothing read it — the same gap this
+  // harness reported to the studio and then had itself.
+  const root = handoff({ 'tokens.css': ':root{}' }, PASSED);
+  const check = verifyHandoff(join(root, 'handoff'));
+  assert.equal(check.intact, true);
+  assert.equal(check.checked, 2);
+  assert.deepEqual(check.mismatches, []);
+});
+
+test('an edited handoff file is caught', () => {
+  const root = handoff({ 'tokens.css': ':root{}' }, PASSED);
+  writeFileSync(join(root, 'handoff', 'tokens.css'), ':root{--edited:1}');
+  const check = verifyHandoff(join(root, 'handoff'));
+  assert.equal(check.intact, false);
+  assert.deepEqual(check.mismatches, ['tokens.css']);
+});
+
+test('a missing handoff file is caught', () => {
+  const root = handoff({ 'tokens.css': ':root{}' }, PASSED);
+  rmSync(join(root, 'handoff', 'tokens.css'));
+  const check = verifyHandoff(join(root, 'handoff'));
+  assert.equal(check.intact, false);
+  assert.deepEqual(check.missing, ['tokens.css']);
+});
+
+test('no manifest is not an intact handoff', () => {
+  // Absent evidence is not evidence of integrity.
+  const root = handoff({ 'tokens.css': ':root{}' }, PASSED);
+  rmSync(join(root, 'handoff', 'handoff.sha256'));
+  const check = verifyHandoff(join(root, 'handoff'));
+  assert.equal(check.manifest_present, false);
+  assert.equal(check.intact, false);
+});
+
+test('the studio gate receipt is read where the studio actually writes it', () => {
+  // The harness looked only for handoff/gate.json, which this studio version
+  // never emits, so a properly gated handoff read as "gate state unknown" and
+  // cost 20 points on the design pillar.
+  const root = handoff({ 'tokens.css': ':root{}' }, PASSED);
+  const state = readDesignState(root);
+  assert.equal(state.handoff_passed_gate, true);
+  assert.equal(state.handoff_digest, 'abc123');
+});
+
+test('a passed receipt over an edited handoff is refused, not believed', () => {
+  /* The property that makes the receipt worth reading at all. `passed: true`
+   * is a claim about a set of files; the manifest proves those are the files.
+   * Without this, editing a token after the gate would keep the pass. */
+  const root = handoff({ 'tokens.css': ':root{}' }, PASSED);
+  writeFileSync(join(root, 'handoff', 'tokens.css'), ':root{--snuck-in:1}');
+  const state = readDesignState(root);
+  assert.notEqual(state.handoff_passed_gate, true, 'a tampered handoff must not read as gated');
+  assert.match(state.blockers.join('\n'), /no longer matches its own manifest/);
+});
+
+test('a recorded failure stays a failure', () => {
+  const root = handoff({ 'tokens.css': ':root{}' }, { screens: { passed: false } });
+  assert.equal(readDesignState(root).handoff_passed_gate, false);
 });
