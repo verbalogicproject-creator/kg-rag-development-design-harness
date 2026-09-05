@@ -29,6 +29,8 @@ export interface DesignEvidence {
   lint_build_problems: string[];
   fixture_leaks: string[];
   screenshots: string[];
+  /** The design gate's own report — the only design evidence that was measured. */
+  gate_checks: { id: string; status: 'pass' | 'fail' | 'vacuous'; detail: string }[];
 }
 
 export interface ConvergeInput {
@@ -171,20 +173,39 @@ export function converge(input: ConvergeInput): ConvergeReport {
       name: 'Design fidelity',
       score: 0,
       components: [
+        /* The gate carries the most weight because it is the only component
+           here that measured anything. A vacuous check earns nothing: it did
+           not fail, but it produced no evidence either, and scoring it as a
+           pass is how a surface banks credit for a check that never looked. */
+        (() => {
+          const checks = design.gate_checks ?? [];
+          const passed = checks.filter((c) => c.status === 'pass').length;
+          const failed = checks.filter((c) => c.status === 'fail');
+          const vacuous = checks.filter((c) => c.status === 'vacuous');
+          return {
+            label: 'the design gate measured and passed',
+            earned: checks.length ? Math.round((40 * passed) / checks.length) : 0,
+            possible: 40,
+            detail: !checks.length ? 'the design gate was never run'
+              : failed.length ? `${failed.length} failed: ${failed.map((c) => c.id).join(', ')}`
+              : vacuous.length ? `${passed}/${checks.length} passed; ${vacuous.map((c) => c.id).join(', ')} had nothing to inspect`
+              : `all ${passed} check(s) passed`,
+          };
+        })(),
         { label: 'handoff released by a human gate',
-          earned: design.handoff_exists && design.handoff_passed_gate === true ? 40 : design.handoff_exists ? 15 : 0,
-          possible: 40,
+          earned: design.handoff_exists && design.handoff_passed_gate === true ? 30 : design.handoff_exists ? 10 : 0,
+          possible: 30,
           detail: !design.handoff_exists ? 'no handoff folder'
             : design.handoff_passed_gate === true ? 'gate passed'
             : design.handoff_passed_gate === false ? 'forced export, gate not passed'
             : 'handoff present, gate state unknown' },
         { label: 'implementation matches the frozen contract',
-          earned: design.lint_build_passed === true ? 35 : 0, possible: 35,
+          earned: design.lint_build_passed === true ? 15 : 0, possible: 15,
           detail: design.lint_build_passed === null ? 'lint-build was not run'
             : design.lint_build_passed ? 'lint-build passed'
             : `lint-build reported ${design.lint_build_problems.length} problem(s)` },
         { label: 'no quarantined fixture value shipped',
-          earned: design.fixture_leaks.length === 0 ? 25 : 0, possible: 25,
+          earned: design.fixture_leaks.length === 0 ? 15 : 0, possible: 15,
           detail: design.fixture_leaks.length ? `leaked: ${design.fixture_leaks.slice(0, 3).join(', ')}` : 'clean' },
       ],
     };

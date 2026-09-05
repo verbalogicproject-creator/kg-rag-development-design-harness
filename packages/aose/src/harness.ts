@@ -67,6 +67,19 @@ export class Harness {
 
   designState(slug: string): DesignState { return readDesignState(this.designDir(slug)); }
 
+  /** The design gate's last report, if it has been run. Absent is not a pass. */
+  designGateChecks(slug: string): { id: string; status: 'pass' | 'fail' | 'vacuous'; detail: string }[] {
+    const report = join(this.designDir(slug), '__checks__', 'tokens.report.json');
+    if (!existsSync(report)) return [];
+    try {
+      const parsed = JSON.parse(readFileSync(report, 'utf8'));
+      return Array.isArray(parsed?.checks)
+        ? parsed.checks.map((c: { id: string; status: string; detail: string }) =>
+            ({ id: c.id, status: c.status as 'pass' | 'fail' | 'vacuous', detail: c.detail }))
+        : [];
+    } catch { return []; }
+  }
+
   /** Scaffold design/DESIGN.md, tokens and preview through the studio CLI. */
   designInit(slug: string, name?: string): { ok: boolean; command: string; output: string } {
     const dir = this.dir(slug);
@@ -445,7 +458,7 @@ export class Harness {
   private designEvidence(slug: string, domain: string, worktree: string) {
     const spec = this.artifacts(slug).specs?.[domain];
     if (!spec?.design) {
-      return { bound: false, handoff_exists: false, handoff_passed_gate: null, lint_build_passed: null, lint_build_problems: [], fixture_leaks: [], screenshots: [] };
+      return { bound: false, handoff_exists: false, handoff_passed_gate: null, lint_build_passed: null, lint_build_problems: [], fixture_leaks: [], screenshots: [], gate_checks: [] };
     }
     const state = this.designState(slug);
     const deliverables = this.artifacts(slug).tasks?.[domain]?.task.deliverables ?? [];
@@ -463,7 +476,7 @@ export class Harness {
     const handoffRel = spec.design.handoff ?? 'design/handoff';
     if (!isContained(this.dir(slug), handoffRel)) {
       return { bound: true, handoff_exists: false, handoff_passed_gate: false, lint_build_passed: false,
-        lint_build_problems: [`design.handoff "${handoffRel}" resolves outside the project`], fixture_leaks: [], screenshots: [] };
+        lint_build_problems: [`design.handoff "${handoffRel}" resolves outside the project`], fixture_leaks: [], screenshots: [], gate_checks: [] };
     }
     const fixtures = join(containedPath(this.dir(slug), handoffRel), 'fixtures');
     const quarantined = existsSync(fixtures) ? collectFixtureValues(fixtures) : [];
@@ -482,6 +495,9 @@ export class Harness {
       lint_build_problems: lint?.problems ?? [],
       fixture_leaks: leaks,
       screenshots: [],
+      /* Read from the gate's own report rather than re-run here: converge
+         scores evidence that was produced, it does not produce it. */
+      gate_checks: this.designGateChecks(slug),
     };
   }
 

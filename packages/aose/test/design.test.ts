@@ -238,15 +238,51 @@ test('design fidelity only appears for a domain bound to a design contract', () 
     sources: [], citedUrls: [], approvalAt: '2026-01-01', firstDispatchAt: '2026-01-02',
   };
   assert.equal(converge(common).pillars.length, 4);
-  assert.equal(converge({ ...common, design: { bound: false, handoff_exists: false, handoff_passed_gate: null, lint_build_passed: null, lint_build_problems: [], fixture_leaks: [], screenshots: [] } }).pillars.length, 4);
+  assert.equal(converge({ ...common, design: { bound: false, handoff_exists: false, handoff_passed_gate: null, lint_build_passed: null, lint_build_problems: [], fixture_leaks: [], screenshots: [], gate_checks: [] } }).pillars.length, 4);
 
-  const bound = converge({ ...common, design: {
+  // Studio artifacts alone cap the pillar. A handoff and a clean lint-build are
+  // process evidence, not measurement, so without the gate having run its 40
+  // points are unearned — the direct answer to "how could a worker score 100
+  // without doing the work".
+  const unmeasured = converge({ ...common, design: {
+    bound: true, handoff_exists: true, handoff_passed_gate: true,
+    lint_build_passed: true, lint_build_problems: [], fixture_leaks: [], screenshots: [], gate_checks: [],
+  } });
+  assert.equal(unmeasured.pillars.length, 5);
+  assert.equal(unmeasured.pillars[4].name, 'Design fidelity');
+  assert.equal(unmeasured.pillars[4].score, 60, 'no gate run means no gate credit');
+  assert.match(unmeasured.pillars[4].components[0].detail, /never run/);
+
+  const measured = converge({ ...common, design: {
     bound: true, handoff_exists: true, handoff_passed_gate: true,
     lint_build_passed: true, lint_build_problems: [], fixture_leaks: [], screenshots: [],
+    gate_checks: ['DSC-01', 'DSC-02', 'DSC-03', 'DSC-04'].map((id) =>
+      ({ id, status: 'pass' as const, detail: 'ok' })),
   } });
-  assert.equal(bound.pillars.length, 5);
-  assert.equal(bound.pillars[4].name, 'Design fidelity');
-  assert.equal(bound.pillars[4].score, 100);
+  assert.equal(measured.pillars[4].score, 100, 'full marks require the gate to have measured');
+});
+
+test('a vacuous design check earns nothing, so it cannot bank credit it did not measure', () => {
+  const root = dir();
+  writeFileSync(join(root, 'feeds.js'), 'export function load(){return [];}');
+  const report = converge({
+    domain: 'infra/feeds', worktree: root, spec: spec(), task: task().task,
+    gateExit: 0, gateStdout: 'n', gateStdoutSha: 'a'.repeat(64),
+    sources: [], citedUrls: [], approvalAt: '2026-01-01', firstDispatchAt: '2026-01-02',
+    design: {
+      bound: true, handoff_exists: true, handoff_passed_gate: true, lint_build_passed: true,
+      lint_build_problems: [], fixture_leaks: [], screenshots: [],
+      gate_checks: [
+        { id: 'DSC-01', status: 'pass', detail: 'ok' },
+        { id: 'DSC-02', status: 'pass', detail: 'ok' },
+        { id: 'DSC-04', status: 'vacuous', detail: 'no browser available' },
+        { id: 'DSC-05', status: 'vacuous', detail: 'no browser available' },
+      ],
+    },
+  });
+  const gate = report.pillars.find((p) => p.name === 'Design fidelity')!.components[0];
+  assert.equal(gate.earned, 20, 'two of four measured, so half the gate credit');
+  assert.match(gate.detail, /DSC-04, DSC-05 had nothing to inspect/);
 });
 
 test('a shipped fixture value and a forced handoff both cost the design pillar', () => {
@@ -256,10 +292,10 @@ test('a shipped fixture value and a forced handoff both cost the design pillar',
     domain: 'infra/feeds', worktree: root, spec: spec(), task: task().task,
     gateExit: 0, gateStdout: 'n', gateStdoutSha: 'a'.repeat(64),
     sources: [], citedUrls: [], approvalAt: '2026-01-01', firstDispatchAt: '2026-01-02',
-    design: { bound: true, handoff_exists: true, handoff_passed_gate: false, lint_build_passed: false, lint_build_problems: ['token drift'], fixture_leaks: ['Aurora Labs'] , screenshots: [] },
+    design: { bound: true, handoff_exists: true, handoff_passed_gate: false, lint_build_passed: false, lint_build_problems: ['token drift'], fixture_leaks: ['Aurora Labs'] , screenshots: [], gate_checks: [] },
   });
   const pillar = report.pillars.find((p) => p.name === 'Design fidelity')!;
-  assert.equal(pillar.score, 15, 'only the partial credit for a handoff existing at all');
+  assert.equal(pillar.score, 10, 'only the partial credit for a handoff existing at all');
   assert.equal(report.passed, false);
 });
 
