@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   parseHex, luminance, contrastRatio, parseTokens,
-  checkContrast, checkTokenResolution, checkPaletteCoverage, hueOf, designCheck, loadDesignSystem, formatReport,
+  checkContrast, checkTokenResolution, checkPaletteCoverage, checkAntiDirection, hueOf, designCheck, loadDesignSystem, formatReport,
 } from '../src/designcheck.ts';
 import { DesignSystemSchema } from '../src/schema.ts';
 
@@ -290,4 +290,78 @@ test('a review-level scenario is surfaced, so the report never implies full cove
   assert.equal(review!.requirement, 'DREQ-06');
   assert.equal(report.checks.some((c) => c.id === 'DSC-06'), false, 'it must not be scored as a gate check');
   assert.match(formatReport(report), /DSC-06[\s\S]*enforcement: review/);
+});
+
+/* ---- DSC-08: the composite, actually compared to the tokens ---- */
+
+const compositeSystem = (over: Record<string, unknown> = {}) => system({
+  direction: {
+    family: 'precise-technical', thesis: 'T',
+    anti_direction: [{
+      id: 'AD-01', rule: 'the convergence composite', threshold: 3,
+      source: 'natural-color-and-humanization.md',
+      note: 'A brief naming any of these wins outright.',
+      components: [
+        { describes: 'A warm off-white ground', matches: ['#f7f5f1', '#F7F5F2'] },
+        { describes: 'A default display serif', matches: ['Fraunces', 'Instrument Serif'] },
+        { describes: 'A clay accent', matches: ['#d97757', '#A0552A'] },
+        { describes: 'Warm near-black text', matches: ['#1a1714', '#1A1917'] },
+      ],
+    }],
+  },
+  ...over,
+});
+
+test('DSC-08 fires on the bundle that shipped in this project', () => {
+  // AD-01 declared four members and a threshold of three, and nothing compared
+  // it to the tokens. The list read as a guard and enforced nothing — the same
+  // failure this project catalogues, committed in its own contract.
+  const tokens = parseTokens(`:root {
+    --ls-color-background: #F7F5F2;
+    --ls-color-content: #1A1917;
+    --ls-color-accent: #A0552A;
+    --ls-font-display: Fraunces, Georgia, serif;
+  }`);
+  const result = checkAntiDirection(compositeSystem(), tokens);
+  assert.equal(result.status, 'fail');
+  assert.match(result.findings[0], /AD-01 fires at 4\/3/);
+  assert.match(result.findings[0], /A brief naming any of these wins outright/,
+    'the resolution travels with the failure — justify, do not redesign');
+});
+
+test('DSC-08 does not fire below the threshold', () => {
+  // The source rule is explicit that any one of these is legitimate. A pairwise
+  // model cannot express that; the threshold is the whole point.
+  const tokens = parseTokens(`:root {
+    --ls-color-background: #F7F5F2;
+    --ls-font-display: Fraunces, Georgia, serif;
+  }`);
+  assert.equal(checkAntiDirection(compositeSystem(), tokens).status, 'pass');
+});
+
+test('DSC-08 reads a font stack member, not only an exact token value', () => {
+  // "Fraunces, Georgia, serif" contains the flagged face. Matching the whole
+  // declaration would miss every real font stack.
+  const tokens = parseTokens(':root { --ls-font-display: Fraunces, Georgia, serif; }');
+  const hit = checkAntiDirection(compositeSystem(), tokens);
+  assert.match(hit.detail, /token value/);
+  assert.equal(hit.status, 'pass', 'one member alone still does not fire');
+});
+
+test('DSC-08 is vacuous when no rule declares a threshold', () => {
+  const noComposite = system({
+    direction: {
+      family: 'precise-technical', thesis: 'T',
+      anti_direction: [{ id: 'AD-01', rule: 'no gradients', source: 's' }],
+    },
+  });
+  const result = checkAntiDirection(noComposite, parseTokens(':root { --ls-color-background: #fff; }'));
+  assert.equal(result.status, 'vacuous');
+  assert.match(result.detail, /nothing composite was checked/);
+});
+
+test('the redesigned dashboard palette clears the composite', () => {
+  const report = designCheck('blueprints/freelance-dashboard');
+  const composite = report.checks.find((c) => c.id === 'DSC-08')!;
+  assert.equal(composite.status, 'pass', composite.findings.join('\n'));
 });

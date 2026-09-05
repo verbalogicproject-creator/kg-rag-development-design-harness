@@ -28,7 +28,7 @@
       "id": "DSC-07",
       "test_name": "the token file provides every role the contract declares",
       "status": "pass",
-      "detail": "15 role(s) checked across light and dark, 2/3 hue(s) used; motion is contract-declared, not tokenised (design.md has no motion field)",
+      "detail": "15 role(s) checked across light and dark, 3/3 hue(s) used; motion is contract-declared, not tokenised (design.md has no motion field)",
       "findings": []
     },
     {
@@ -36,6 +36,13 @@
       "test_name": "every surface renders a real empty state",
       "status": "pass",
       "detail": "8/16 surface-states have a screen; 4 surface(s) declare an empty state",
+      "findings": []
+    },
+    {
+      "id": "DSC-08",
+      "test_name": "the palette trips no composite anti-pattern",
+      "status": "pass",
+      "detail": "1 composite rule(s) checked against 77 token value(s)",
       "findings": []
     },
     {

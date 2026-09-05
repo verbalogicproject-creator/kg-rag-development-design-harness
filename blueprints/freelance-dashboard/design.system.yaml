@@ -42,11 +42,19 @@ design_system:
           The convergence composite: a warm off-white ground with a high-contrast
           display serif and a single clay accent, arriving together.
         threshold: 3
+        # Members carry `matches` so a gate can compare them to the tokens.
+        # Generated from the design graph's component_of edges — the graph is
+        # how these are authored; the contract is what the gate reads, so the
+        # check stays self-contained inside a cold worktree.
         components:
-          - "ground in {#f4f1ea, #f5f1ea, #f7f5f1, #fbf8f1, #F7F5F2}"
-          - "display face in {Fraunces, Instrument Serif} chosen as a default"
-          - "accent in {#d97757, #b6553a, #b08947, #9a2436, #A0552A}"
-          - "warm near-black text in {#1a1714, #1a1814, #1b1814, #1A1917}"
+          - describes: A warm off-white ground
+            matches: ["#f4f1ea", "#f5f1ea", "#f7f5f1", "#fbf8f1", "#F7F5F2"]
+          - describes: A display serif chosen as a default rather than for the brief
+            matches: ["Fraunces", "Instrument Serif"]
+          - describes: A single clay or brass accent
+            matches: ["#d97757", "#b6553a", "#b08947", "#9a2436", "#A0552A"]
+          - describes: Warm near-black text
+            matches: ["#1a1714", "#1a1814", "#1b1814", "#1A1917"]
         source: ls-design/references/natural-color-and-humanization.md — "The named bundle"
         note: >-
           A brief that names these wins outright. What this catches is the same
@@ -180,6 +188,10 @@ design_system:
       ears: WHEN this contract names a colour role THE SYSTEM SHALL define that role in the token file for every declared mode, and SHALL keep the palette within its declared hue budget.
       enforcement: gate
       verified_by: [DSC-07]
+    - id: DREQ-08
+      ears: WHEN the token file is compared against a composite anti_direction rule THE SYSTEM SHALL keep the number of matching members below that rule's threshold, unless a justification is recorded.
+      enforcement: gate
+      verified_by: [DSC-08]
 
   verification:
     check_suite: design/__checks__/design.test.ts
@@ -220,3 +232,8 @@ design_system:
         when: each role is resolved in every declared mode and the palette's hues are counted
         then: every role is defined and the hue count is within budget
         test_name: the token file provides every role the contract declares
+      - id: DSC-08
+        given: the token file and every composite anti_direction rule
+        when: the tokens are compared against each rule's members
+        then: no composite reaches its threshold without a recorded justification
+        test_name: the palette trips no composite anti-pattern

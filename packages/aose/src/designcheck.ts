@@ -404,6 +404,64 @@ export function checkStates(
   };
 }
 
+/**
+ * DSC-08 — the palette trips no composite anti-pattern.
+ *
+ * AD-01 declared four members and a threshold of three, and nothing compared it
+ * to the tokens. The list read as a guard and enforced nothing — the same
+ * failure this project catalogues, committed in its own contract on the day the
+ * catalogue was written.
+ *
+ * A composite fires on the bundle, never on a member: the source rule is
+ * explicit that a brief naming any one of these wins outright, and only the
+ * combination arriving whatever the subject is the problem. So this is a
+ * threshold, and clearing it demands a recorded justification rather than a
+ * redesign.
+ */
+export function checkAntiDirection(
+  system: DesignSystem['design_system'],
+  tokens: TokenSets,
+): CheckResult {
+  const scenario = system.verification.scenarios.find((s) => s.id === 'DSC-08');
+  const inPlay = new Set(
+    [...tokens.light.values(), ...tokens.dark.values()]
+      .flatMap((value) => value.split(',').map((part) => part.trim().replace(/^["']|["']$/g, '')))
+      .filter(Boolean)
+      .map((value) => value.toLowerCase()),
+  );
+
+  const findings: string[] = [];
+  let composites = 0;
+
+  for (const entry of system.direction.anti_direction) {
+    if (!entry.threshold) continue;
+    composites += 1;
+    const matched: string[] = [];
+    for (const component of entry.components) {
+      if (typeof component === 'string') continue;   // descriptive only; nothing to compare
+      const hit = component.matches.find((candidate) => inPlay.has(candidate.toLowerCase()));
+      if (hit) matched.push(`${component.describes} (${hit})`);
+    }
+    if (matched.length >= entry.threshold) {
+      findings.push(
+        `${entry.id} fires at ${matched.length}/${entry.threshold}: ${matched.join('; ')}. `
+        + `${entry.note ? entry.note.replace(/\s+/g, ' ').trim() : entry.rule}`,
+      );
+    }
+  }
+
+  return {
+    id: 'DSC-08',
+    test_name: scenario?.test_name ?? 'the palette trips no composite anti-pattern',
+    // No composite rule means nothing was compared, which is not a pass.
+    status: composites === 0 ? 'vacuous' : findings.length ? 'fail' : 'pass',
+    detail: composites === 0
+      ? 'no anti_direction rule declares a threshold, so nothing composite was checked'
+      : `${composites} composite rule(s) checked against ${inPlay.size} token value(s)`,
+    findings,
+  };
+}
+
 /* ------------------------------------------------------------------ */
 /* The gate                                                            */
 /* ------------------------------------------------------------------ */
@@ -439,6 +497,7 @@ export function designCheck(
     checkContrast(system, tokens),
     checkPaletteCoverage(system, tokens),
     checkStates(system, dir, surfaces),
+    checkAntiDirection(system, tokens),
   ];
 
   const contrast = checks.find((c) => c.id === 'DSC-02')!;

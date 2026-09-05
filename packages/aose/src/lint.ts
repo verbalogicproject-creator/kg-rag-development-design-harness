@@ -490,16 +490,28 @@ export function lint(input: LintInput): LintResult {
                   findings.push(err('LINT-33', where, `tokens drift: design.system froze ${declared.slice(0, 12)}… but design.json now reports ${actual.slice(0, 12)}…. The tokens changed after the contract was written; re-approve them or restore the frozen set.`));
                 }
 
-                /* `provenance` records the hash of each generated FILE. Nothing
-                   read it, so hand-editing tokens.css changed the file, left
-                   tokensHash untouched, and passed every check. The contract
-                   says these files are generated and must be regenerated rather
-                   than edited — this is the mechanism for that sentence. */
+                /* `provenance` records a hash for every file the studio wrote,
+                   and nothing read them — so hand-editing tokens.css changed the
+                   file, left tokensHash untouched, and passed every check.
+
+                   But provenance covers two different kinds of file, and only
+                   one of them is generated. DESIGN.md is the hand-authored
+                   source; a change to it is legitimate authoring that needs
+                   re-approval, not a defect. The other three are derived from
+                   it, and editing those is the thing the contract forbids
+                   because the next regeneration discards the edit. */
+                const GENERATED = new Set(['tokens.css', 'tailwind.theme.css', 'preview.html']);
                 for (const [name, recorded] of Object.entries(state?.provenance ?? {})) {
                   const generated = join(input.dir, 'design', name);
                   if (!existsSync(generated) || typeof recorded !== 'string') continue;
                   const onDisk = createHash('sha256').update(readFileSync(generated)).digest('hex');
-                  if (onDisk !== recorded) {
+                  if (onDisk === recorded) continue;
+
+                  if (!GENERATED.has(name)) {
+                    findings.push(err('LINT-33', where, `design/${name} changed after the studio last recorded it. That is authoring, not a defect — but the approval was made against the old contract, so re-approve it in the studio before dispatching.`));
+                    continue;
+                  }
+                  {
                     findings.push(err('LINT-33', where, `design/${name} was edited by hand: it hashes to ${onDisk.slice(0, 12)}… but the studio recorded ${recorded.slice(0, 12)}…. It is a generated file — change the contract and regenerate, because the next regeneration discards the edit.`));
                   }
                 }

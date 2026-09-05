@@ -222,12 +222,29 @@ export const DirectionFamilySchema = z.enum(DIRECTION_FAMILIES);
  * bundle is a problem, and the counted rules ("more than one per three
  * sections") that a pairwise model cannot express at all.
  */
+/**
+ * One member of a composite rule.
+ *
+ * A bare string describes the member for a human. `matches` is what a gate can
+ * actually compare against — the literal values that count as this member being
+ * present. Without it a threshold is unenforceable, which is how AD-01 declared
+ * four components and a threshold of three while nothing ever compared it to
+ * the tokens.
+ */
+export const AntiDirectionComponentSchema = z.union([
+  nonEmpty,
+  z.object({
+    describes: nonEmpty,
+    matches: z.array(nonEmpty).min(1),
+  }),
+]);
+
 export const AntiDirectionSchema = z.object({
   id: nonEmpty.regex(/^AD-\d{2}$/, 'anti-direction id must look like AD-01'),
   rule: nonEmpty,
   /** Fire only when at least this many `components` match. Absent means the rule fires alone. */
   threshold: z.number().int().min(1).optional(),
-  components: z.array(nonEmpty).default([]),
+  components: z.array(AntiDirectionComponentSchema).default([]),
   /** Where the rule came from. ART-11: a review that cannot cite has reviewed nothing. */
   source: nonEmpty,
   note: z.string().default(''),
