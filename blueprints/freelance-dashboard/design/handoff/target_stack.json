@@ -1,0 +1,7 @@
+{
+  "framework": "vite-react",
+  "styling": "tailwind-v4",
+  "typescript": true,
+  "tokensVia": "css-vars",
+  "routerSkill": "ls-design-websites"
+}

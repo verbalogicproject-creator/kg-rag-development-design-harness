@@ -25,7 +25,7 @@ import { dirname, join, resolve } from 'node:path';
 export interface InlineResult { html: string; inlined: string[]; kept: string[] }
 
 /** Resolve a screen's stylesheet links, inlining what it can and reporting what it did. */
-export function selfContain(screenPath: string): InlineResult {
+export function selfContain(screenPath: string, tokensHref = '../../../tokens.css'): InlineResult {
   const dir = dirname(resolve(screenPath));
   let html = readFileSync(screenPath, 'utf8');
   const inlined: string[] = [];
@@ -40,8 +40,20 @@ export function selfContain(screenPath: string): InlineResult {
     /* tokens.css is never inlined. The studio validates this and refuses a
        screen that carries token literals — correctly, because a screen with
        baked tokens cannot be repainted by a token edit, which is the whole
-       property that makes a token-driven screen worth authoring. */
-    if (/tokens\.css$/.test(href)) { kept.push(href); continue; }
+       property that makes a token-driven screen worth authoring.
+
+       Its DEPTH does change. The studio serves screens from
+       /files/screens/<slug>/rN/code.html with the design directory as the
+       root, so tokens.css sits three levels up from a stored screen while it
+       sits one level up from the source. Authoring `../tokens.css` and shipping
+       it unchanged is why the canvas rendered raw unstyled markup: the link
+       resolved to a path the server answers with "not found". */
+    if (/tokens\.css$/.test(href)) {
+      const rewritten = tag.replace(href, tokensHref);
+      html = html.replace(tag, rewritten);
+      kept.push(`${href} -> ${tokensHref}`);
+      continue;
+    }
     {
       html = html.replace(tag, `<style data-inlined="${href}">\n${css}\n</style>`);
       inlined.push(href);

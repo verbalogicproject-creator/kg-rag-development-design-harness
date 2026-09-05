@@ -1,0 +1,186 @@
+[
+  {
+    "id": "scr_7687f65b",
+    "slug": "pipeline-board-populated",
+    "title": "Pipeline board — populated",
+    "device": "desktop",
+    "width": 1440,
+    "height": 900,
+    "revision": 3,
+    "source": {
+      "kind": "agent",
+      "prompt": "Board with one column per pipeline stage; fit score as the signature object; Add opportunity as the single accent action."
+    },
+    "files": {
+      "html": "screens/pipeline-board-populated/code.html",
+      "png": "screens/pipeline-board-populated/screen.png"
+    },
+    "decision": {
+      "state": "approved",
+      "notes": "",
+      "at": "2026-09-05T09:33:39.511Z",
+      "by": "human"
+    }
+  },
+  {
+    "id": "scr_26fb0890",
+    "slug": "pipeline-board-empty",
+    "title": "Pipeline board — empty",
+    "device": "desktop",
+    "width": 1440,
+    "height": 900,
+    "revision": 3,
+    "source": {
+      "kind": "agent",
+      "prompt": "REQ-04: the empty state IS the tool — paste box and scout button above the board, no placeholder rows, column hints as a legend."
+    },
+    "files": {
+      "html": "screens/pipeline-board-empty/code.html",
+      "png": "screens/pipeline-board-empty/screen.png"
+    },
+    "decision": {
+      "state": "approved",
+      "notes": "",
+      "at": "2026-09-05T09:33:46.326Z",
+      "by": "human"
+    }
+  },
+  {
+    "id": "scr_cc2e80b2",
+    "slug": "scout-inbox-populated",
+    "title": "Scout inbox — populated",
+    "device": "desktop",
+    "width": 1440,
+    "height": 900,
+    "revision": 3,
+    "source": {
+      "kind": "agent",
+      "prompt": "Listings ranked by fit with reasons hung off the row they explain; Track/Dismiss triage; per-source outcomes including the failure."
+    },
+    "files": {
+      "html": "screens/scout-inbox-populated/code.html",
+      "png": "screens/scout-inbox-populated/screen.png"
+    },
+    "decision": {
+      "state": "approved",
+      "notes": "",
+      "at": "2026-09-05T09:33:56.976Z",
+      "by": "human"
+    }
+  },
+  {
+    "id": "scr_bdebfd6f",
+    "slug": "scout-inbox-empty",
+    "title": "Scout inbox — empty",
+    "device": "desktop",
+    "width": 1440,
+    "height": 900,
+    "revision": 3,
+    "source": {
+      "kind": "agent",
+      "prompt": "Reveals the dependency rather than hiding it: scoring needs a profile, so an unrun scout says so."
+    },
+    "files": {
+      "html": "screens/scout-inbox-empty/code.html",
+      "png": "screens/scout-inbox-empty/screen.png"
+    },
+    "decision": {
+      "state": "approved",
+      "notes": "",
+      "at": "2026-09-05T09:34:20.337Z",
+      "by": "human"
+    }
+  },
+  {
+    "id": "scr_a181a085",
+    "slug": "opportunity-detail-populated",
+    "title": "Opportunity detail — populated",
+    "device": "desktop",
+    "width": 1440,
+    "height": 900,
+    "revision": 3,
+    "source": {
+      "kind": "agent",
+      "prompt": "The editorial counterpoint: reads as a document. Stage spine, the fit object expanded into its reasons, and absent fields rendered as absent rather than filled."
+    },
+    "files": {
+      "html": "screens/opportunity-detail-populated/code.html",
+      "png": "screens/opportunity-detail-populated/screen.png"
+    },
+    "decision": {
+      "state": "approved",
+      "notes": "",
+      "at": "2026-09-05T09:33:41.242Z",
+      "by": "human"
+    }
+  },
+  {
+    "id": "scr_d2a67403",
+    "slug": "opportunity-detail-not-found",
+    "title": "Opportunity detail — not found",
+    "device": "desktop",
+    "width": 1440,
+    "height": 900,
+    "revision": 3,
+    "source": {
+      "kind": "agent",
+      "prompt": "For a detail surface, empty means the record is gone. States the fact and offers the way back; invents no plausible record to fill the page."
+    },
+    "files": {
+      "html": "screens/opportunity-detail-not-found/code.html",
+      "png": "screens/opportunity-detail-not-found/screen.png"
+    },
+    "decision": {
+      "state": "approved",
+      "notes": "",
+      "at": "2026-09-05T09:33:44.461Z",
+      "by": "human"
+    }
+  },
+  {
+    "id": "scr_58390e82",
+    "slug": "profile-populated",
+    "title": "Profile — populated",
+    "device": "desktop",
+    "width": 1440,
+    "height": 900,
+    "revision": 3,
+    "source": {
+      "kind": "agent",
+      "prompt": "The four answers every fit score is computed against, said as such rather than presented as settings."
+    },
+    "files": {
+      "html": "screens/profile-populated/code.html",
+      "png": "screens/profile-populated/screen.png"
+    },
+    "decision": {
+      "state": "approved",
+      "notes": "",
+      "at": "2026-09-05T09:34:15.586Z",
+      "by": "human"
+    }
+  },
+  {
+    "id": "scr_4ffe7da8",
+    "slug": "profile-empty",
+    "title": "Profile — empty",
+    "device": "desktop",
+    "width": 1440,
+    "height": 900,
+    "revision": 3,
+    "source": {
+      "kind": "agent",
+      "prompt": "Blank fields with placeholders that describe the shape of an answer and submit nothing. ART-08: never invented defaults."
+    },
+    "files": {
+      "html": "screens/profile-empty/code.html",
+      "png": "screens/profile-empty/screen.png"
+    },
+    "decision": {
+      "state": "approved",
+      "notes": "",
+      "at": "2026-09-05T09:34:07.858Z",
+      "by": "human"
+    }
+  }
+]

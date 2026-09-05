@@ -1,0 +1,22 @@
+[
+  {
+    "kind": "price",
+    "value": "$12,400",
+    "context": "Board Inbox Profile Opportunities Add opportunity 4 open · $12,400 in play Lead 2 Rails API rescue — legacy Sidekiq queu"
+  },
+  {
+    "kind": "price",
+    "value": "$4,800",
+    "context": ",400 in play Lead 2 Rails API rescue — legacy Sidekiq queue $4,800 85 Shopify theme port to Hydrogen $1,200 42 Drafting "
+  },
+  {
+    "kind": "price",
+    "value": "$1,200",
+    "context": "gacy Sidekiq queue $4,800 85 Shopify theme port to Hydrogen $1,200 42 Drafting 1 Postgres query tuning, read-replica cut"
+  },
+  {
+    "kind": "price",
+    "value": "$6,400",
+    "context": "0 42 Drafting 1 Postgres query tuning, read-replica cutover $6,400 91 Sent 1 Vue 2 to React 19 migration rate TBD 73 Won"
+  }
+]

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "rev": 39,
-  "seq": 41,
+  "rev": 38,
+  "seq": 39,
   "project": {
     "name": "Freelance Dashboard",
     "slug": "freelance-dashboard",
@@ -680,27 +680,13 @@
       "data": {
         "sha256": "31ecbda03ac96de54b93e7dc1c169f5b3ea25dda1601c411351d5449488aaa15"
       }
-    },
-    {
-      "seq": 40,
-      "at": "2026-09-05T09:35:32.111Z",
-      "type": "gate_passed",
-      "data": {}
-    },
-    {
-      "seq": 41,
-      "at": "2026-09-05T09:35:32.111Z",
-      "type": "handoff_written",
-      "data": {
-        "sha256": "d33a1ff3e6431e931352b408c5b8f784f7d7853a27c638a06278fd09bc802714"
-      }
     }
   ],
   "gates": {
     "screens": {
       "passed": true,
-      "at": "2026-09-05T09:35:32.111Z",
-      "handoffSha256": "d33a1ff3e6431e931352b408c5b8f784f7d7853a27c638a06278fd09bc802714"
+      "at": "2026-09-05T09:34:25.836Z",
+      "handoffSha256": "31ecbda03ac96de54b93e7dc1c169f5b3ea25dda1601c411351d5449488aaa15"
     }
   },
   "approvals": [

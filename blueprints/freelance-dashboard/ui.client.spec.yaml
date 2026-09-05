@@ -3,6 +3,7 @@ runtime: vite, react 19, tailwind 4, typescript, vitest with testing-library
 design:
   system: design.system.yaml
   contract: design/DESIGN.md
+  handoff: design/handoff
   target_stack: vite-react-tailwind
   surfaces:
     - id: pipeline-board
