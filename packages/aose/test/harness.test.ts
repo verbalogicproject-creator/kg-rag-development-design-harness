@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, cpSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import YAML from 'yaml';
-import { Harness } from '../src/harness.ts';
+import { Harness, matchBlocked } from '../src/harness.ts';
 import { Ledger } from '../src/ledger.ts';
 import { renderMarkdown, buildBlueprint } from '../src/export.ts';
 import type { FetchLike } from '../src/research.ts';
@@ -122,25 +122,47 @@ test('an approval is bound to the content it approved, not merely to a timestamp
     'the mismatch supersedes the approval rather than merely refusing once');
 });
 
-test('the respec allowance is enforced and then refuses', () => {
+/** Change the blueprint so the approval digest moves, the way a real edit does. */
+function editBlueprint(harness: Harness, slug: string, note: string): void {
+  const path = join(harness.dir(slug), 'idea.yaml');
+  writeFileSync(path, `${readFileSync(path, 'utf8')}\n# ${note}\n`);
+}
+
+/** Put a project back in BLOCKED the way an exhausted dispatch would. */
+function block(harness: Harness, slug: string): void {
+  harness.ledger.setState(slug, 'BLOCKED');
+  harness.ledger.logTransition(slug, 'COMPILED', 'BLOCKED', 'exhausted', null);
+}
+
+test('the respec allowance counts re-specifications, not commands', () => {
+  // The allowance bounds how many times a spec is rewritten after failure. It
+  // used to be charged per invocation, so returning to COMPILED without
+  // touching a byte spent one — the count measured typing, not respecifying.
   const { harness } = project();
   harness.init('tictactoe');
   harness.capture('tictactoe');
   harness.ready('tictactoe');
   harness.compile('tictactoe');
-  harness.ledger.setState('tictactoe', 'BLOCKED');
-  harness.ledger.logTransition('tictactoe', 'COMPILED', 'BLOCKED', 'exhausted', null);
 
+  block(harness, 'tictactoe');
+  editBlueprint(harness, 'tictactoe', 'first real change');
   const first = harness.respec('tictactoe', 'the engine spec was underspecified');
   assert.equal(first.allowed, true);
   assert.equal(first.state, 'COMPILED');
   assert.equal(first.remaining, 1);
 
-  harness.ledger.setState('tictactoe', 'BLOCKED');
-  harness.ledger.logTransition('tictactoe', 'COMPILED', 'BLOCKED', 'exhausted', null);
-  assert.equal(harness.respec('tictactoe', 'again').allowed, true);
+  // Nothing changed since. Returning to COMPILED again respecifies nothing.
+  block(harness, 'tictactoe');
+  const free = harness.respec('tictactoe', 'looked again, changed nothing');
+  assert.equal(free.allowed, true);
+  assert.equal(free.remaining, 1, 'an unchanged respec must not spend the allowance');
 
-  harness.ledger.setState('tictactoe', 'BLOCKED');
+  block(harness, 'tictactoe');
+  editBlueprint(harness, 'tictactoe', 'second real change');
+  assert.equal(harness.respec('tictactoe', 'again').remaining, 0);
+
+  block(harness, 'tictactoe');
+  editBlueprint(harness, 'tictactoe', 'third real change');
   const third = harness.respec('tictactoe', 'and again');
   assert.equal(third.allowed, false, 'the constitution allows two respecs, not an endless loop');
   assert.equal(third.remaining, 0);
@@ -175,6 +197,80 @@ test('a domain cannot be dispatched before the domain it depends on has passed',
     () => harness.dispatch('tictactoe', { domain: 'ui/client', adapter: 'fake' }),
     /depends on "core\/engine", which has not passed its gate/,
   );
+});
+
+/** Take a project all the way to APPROVED, ready to dispatch. */
+async function approved(): Promise<Harness> {
+  const { harness } = project();
+  harness.init('tictactoe');
+  harness.capture('tictactoe');
+  harness.ready('tictactoe');
+  harness.addSource('tictactoe', nl2contract());
+  harness.compile('tictactoe');
+  await harness.verifySources('tictactoe', verifiedFetch);
+  harness.lint('tictactoe');
+  harness.review('tictactoe');
+  harness.approve('tictactoe', 'owner');
+  return harness;
+}
+
+test('the identical blueprint is not re-dispatched to the adapter it already failed on', async () => {
+  // The waste this closes was real: the same blueprint was dispatched to the
+  // same fake worker twice, producing byte-identical failures, and the harness
+  // spent a respec allowance each time to allow it. A deterministic worker on
+  // unchanged input cannot produce a new result.
+  const harness = await approved();
+  const first = await harness.dispatch('tictactoe', { domain: 'core/engine', adapter: 'fake', maxAttempts: 1 });
+  assert.equal(first[0].passed, false, 'no fixtures, so this must fail');
+  assert.equal(harness.ledger.getProject('tictactoe')!.state, 'BLOCKED');
+
+  harness.respec('tictactoe', 'nothing changed');
+  harness.lint('tictactoe');
+  harness.review('tictactoe');
+  harness.approve('tictactoe', 'owner');
+
+  await assert.rejects(
+    () => harness.dispatch('tictactoe', { domain: 'core/engine', adapter: 'fake', maxAttempts: 1 }),
+    /already exhausted its attempts on "fake" with this exact blueprint/,
+  );
+});
+
+test('the blocked key needs the domain, the adapter and the blueprint to all match', () => {
+  // Tested directly, because the dispatch path skips this check on a dry run.
+  // A test that dry-ran reached nothing, and for a while one silently did not:
+  // dropping the adapter from the key broke no test at all.
+  const digest = 'abc123';
+  const blocked = [{ domain: 'core/engine', adapter: 'fake', digest }];
+
+  assert.equal(matchBlocked(blocked, 'core/engine', 'fake', digest), digest, 'exact match is refused');
+
+  // Each part of the key on its own must lift the refusal.
+  assert.equal(matchBlocked(blocked, 'core/engine', 'claude', digest), null,
+    'another worker on the same blueprint is cross-agent comparison, not a repeat');
+  assert.equal(matchBlocked(blocked, 'core/engine', 'fake', 'different'), null,
+    'a changed blueprint has something new to learn');
+  assert.equal(matchBlocked(blocked, 'ui/client', 'fake', digest), null,
+    'a different domain was never attempted');
+
+  // Malformed or partial records must not match by accident: a missing field
+  // reading as undefined on both sides would make every lookup a refusal.
+  assert.equal(matchBlocked([{}, null, { domain: 'core/engine' }], 'core/engine', 'fake', digest), null);
+});
+
+test('a changed blueprint may be dispatched to the adapter it failed on', async () => {
+  // The other half: the refusal must lift as soon as there is something new to
+  // learn, or a failure would permanently retire an adapter for that domain.
+  const harness = await approved();
+  await harness.dispatch('tictactoe', { domain: 'core/engine', adapter: 'fake', maxAttempts: 1 });
+
+  harness.respec('tictactoe', 'the gate command was wrong');
+  editBlueprint(harness, 'tictactoe', 'a real change');
+  harness.lint('tictactoe');
+  harness.review('tictactoe');
+  harness.approve('tictactoe', 'owner');
+
+  const again = await harness.dispatch('tictactoe', { domain: 'core/engine', adapter: 'fake', maxAttempts: 1 });
+  assert.equal(again.length, 1, 'the changed blueprint is allowed through');
 });
 
 test('the exported plan carries the contracts, traceability and citation status the v1 export lacked', () => {

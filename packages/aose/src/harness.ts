@@ -354,6 +354,24 @@ export class Harness {
         }
       }
 
+      /* The same bytes, the same adapter, and this pair has already exhausted
+         its attempts. Running it again cannot produce a different result — it
+         is deterministic input to the same worker — and the harness let it
+         happen twice before this check existed, spending two respec
+         allowances to learn nothing. Keyed on the adapter, not just the
+         digest, because running an unchanged blueprint through a DIFFERENT
+         worker is the whole cross-agent reproducibility protocol. */
+      if (!options.dryRun) {
+        const dead = this.blockedBefore(slug, domain, adapter, this.approvalDigest(slug));
+        if (dead) {
+          throw new Error(
+            `Dispatch refused: ${domain} already exhausted its attempts on "${adapter}" with this exact blueprint `
+            + `(${dead.slice(0, 12)}), so re-running it would repeat that failure. Change the spec, the task or the `
+            + `gate, or dispatch a different adapter.`,
+          );
+        }
+      }
+
       const seed = this.seedFor(slug, artifacts, domain);
       if (!options.dryRun) apply(this.ledger, slug, 'dispatch', null);
 
@@ -378,6 +396,9 @@ export class Harness {
           const allPassed = (order.length ? order : domains).every((d) => this.ledger.domainPassed(slug, d));
           apply(this.ledger, slug, allPassed ? 'gate_pass' : 'gate_partial', null);
         } else {
+          /* Record what failed, so the identical run can be refused rather
+             than repeated. */
+          this.ledger.addFinding(slug, 'blocked', { domain, adapter, digest: this.approvalDigest(slug) });
           apply(this.ledger, slug, 'gate_fail', null);
           apply(this.ledger, slug, 'exhausted', null);
           break;
@@ -551,15 +572,38 @@ export class Harness {
     const project = this.requireProject(slug);
     const constitution = this.artifacts(slug).constitution ?? this.ledger.latest<Constitution>(slug, 'constitution');
     const maxRespec = constitution?.constitution.budgets.max_respec ?? 2;
-    const outcome = this.ledger.consumeRespec(slug, maxRespec);
+    /* The allowance bounds re-SPECIFICATION. Returning to COMPILED without
+       changing a byte has not respecified anything, so it costs nothing — the
+       loop it was guarding against is closed at dispatch instead, where an
+       unchanged blueprint that already failed on this adapter is refused
+       outright. Charging for it here measured how many times someone typed
+       the command, which is not the quantity the constitution declares. */
+    const digest = this.approvalDigest(slug);
+    const previous = this.lastRespecDigest(slug);
+    const unchanged = previous !== null && previous === digest;
+
+    const outcome = unchanged
+      ? { allowed: true, used: project.respec_count, remaining: Math.max(0, maxRespec - project.respec_count) }
+      : this.ledger.consumeRespec(slug, maxRespec);
     if (!outcome.allowed) {
       this.ledger.addFinding(slug, 'respec', { reason, exhausted: true, used: outcome.used, max: maxRespec });
       return { ...outcome, state: project.state };
     }
-    const revision = this.ledger.addRevision(slug, 'respec', { reason, used: outcome.used, max: maxRespec });
+    const revision = this.ledger.addRevision(slug, 'respec', { reason, used: outcome.used, max: maxRespec, digest, unchanged });
     const state = apply(this.ledger, slug, 'respec', revision);
     this.noteEdit(slug);
     return { ...outcome, state };
+  }
+
+  /** The blueprint digest recorded by the most recent respec, if there was one. */
+  private lastRespecDigest(slug: string): string | null {
+    const body = this.ledger.latest<{ digest?: string }>(slug, 'respec');
+    return typeof body?.digest === 'string' && body.digest ? body.digest : null;
+  }
+
+  /** Whether this exact blueprint already exhausted its attempts on this adapter. */
+  private blockedBefore(slug: string, domain: string, adapter: string, digest: string): string | null {
+    return matchBlocked(this.ledger.findings(slug, 'blocked').map((f) => f.body), domain, adapter, digest);
   }
 
   validate(slug: string) { return validateProject(this.ledger, slug, this.dir(slug)); }
@@ -588,3 +632,31 @@ function readArtifact<T>(path: string, schema: unknown, label: string): T {
 }
 
 export { formatConverge };
+
+/**
+ * Whether a `blocked` finding records this exact (domain, adapter, blueprint).
+ *
+ * Pure and exported so all four combinations can be tested directly. The real
+ * dispatch path skips this check on a dry run, which spends nothing and is a
+ * diagnostic — so a test that dry-ran could not reach it, and for a while one
+ * silently did not.
+ *
+ * All three parts of the key matter. Dropping the digest would retire an
+ * adapter permanently after one failure; dropping the adapter would forbid
+ * running one approved blueprint through several workers, which is the
+ * cross-agent reproducibility protocol this harness exists to run.
+ */
+export function matchBlocked(
+  bodies: unknown[],
+  domain: string,
+  adapter: string,
+  digest: string,
+): string | null {
+  for (const body of bodies) {
+    const record = body as { domain?: string; adapter?: string; digest?: string } | null;
+    if (record?.domain === domain && record.adapter === adapter && record.digest === digest) {
+      return record.digest ?? null;
+    }
+  }
+  return null;
+}
