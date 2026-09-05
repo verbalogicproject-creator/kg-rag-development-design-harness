@@ -14,6 +14,7 @@ import { getAdapter } from './adapters/index.ts';
 import type { AdapterOptions } from './adapters/index.ts';
 import { readCodexLastMessage } from './adapters/codex.ts';
 import { buildPayload, estimateTokens } from './payload.ts';
+import { recall } from './recall.ts';
 import { runGate, cleanEnv } from './gate.ts';
 import type { GateResult } from './gate.ts';
 import type { Constitution, Spec, Task } from './schema.ts';
@@ -157,6 +158,18 @@ export async function dispatch(ledger: Ledger, options: DispatchOptions): Promis
   const attempts: AttemptRecord[] = [];
   let priorNotes = '';
   let passed = false;
+  /* What earlier runs of this domain failed on, joined on the constraints this
+     task declares. Computed once: it is a property of history, not of the
+     attempt, and re-querying per attempt would say the same thing again. */
+  const constraintIds = [
+    ...(task.context.constitution_articles ?? []),
+    ...(spec.requirements ?? []).flatMap((requirement) => requirement.verified_by),
+  ];
+  const memory = recall(ledger, slug, domain, constraintIds);
+  if (memory.known_failures.length) {
+    onEvent(`[${adapter}] ${domain} recall: ${memory.known_failures.length} known failure(s) from ${memory.from_runs} prior run(s)`);
+  }
+
   let preview = '';
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -166,7 +179,8 @@ export async function dispatch(ledger: Ledger, options: DispatchOptions): Promis
 
     const payload = buildPayload({
       domain, attempt, maxAttempts, constitution, spec, task,
-      priorNotes, fixtureRoot: fixtureRoot ? resolve(fixtureRoot) : undefined,
+      priorNotes, recall: memory.text,
+      fixtureRoot: fixtureRoot ? resolve(fixtureRoot) : undefined,
     });
     writeFileSync(join(runDir, 'payload.md'), payload);
     preview = previewCommand(adapter, payload, worktree, runDir, adapterOptions);
@@ -185,7 +199,9 @@ export async function dispatch(ledger: Ledger, options: DispatchOptions): Promis
       writeFileSync(join(worktree, '.aose', 'PROGRESS.md'), priorNotes);
     }
 
-    const runId = ledger.startRun(slug, domain, adapter, attempt, runDir);
+    /* The constraints this run was held to. Recorded on the run rather than
+       looked up later, because the blueprint can change and the run cannot. */
+    const runId = ledger.startRun(slug, domain, adapter, attempt, runDir, constraintIds);
     onEvent(`[${adapter}] ${domain} attempt ${attempt}/${maxAttempts} — worker starting`);
 
     const worker = await runWorker(adapter, payload, worktree, runDir, adapterOptions);

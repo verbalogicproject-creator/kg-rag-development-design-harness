@@ -18,6 +18,8 @@ export interface PayloadInput {
   spec: Spec;
   task: Task['task'];
   priorNotes?: string;
+  /** What prior runs of this domain failed on, from `recall`. Empty when cold. */
+  recall?: string;
   fixtureRoot?: string;
 }
 
@@ -55,6 +57,12 @@ export function buildPayload(input: PayloadInput): string {
     '3. Append what you did to `.aose/PROGRESS.md`.',
     '4. End your final message with one line: `GATE: PASS|FAIL — <files you touched>`.',
   ].join('\n'));
+
+  /* Before the retry notes, because this is what OTHER runs learned; the retry
+     notes are what THIS attempt learned. Both bounded by LINT-24. */
+  if (input.recall?.trim()) {
+    sections.push(input.recall.trim());
+  }
 
   if (input.priorNotes?.trim()) {
     sections.push('## Prior attempt notes\n```\n' + input.priorNotes.trim() + '\n```');

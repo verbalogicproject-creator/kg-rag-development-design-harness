@@ -39,6 +39,8 @@ export interface RunRow {
   gate_stdout_sha256: string;
   duration_ms: number;
   run_dir: string;
+  /** Constraint ids this run was held to, as JSON. The join key for `recall`. */
+  constraints: string;
   notes: string;
 }
 
@@ -67,7 +69,8 @@ export class Ledger {
         id INTEGER PRIMARY KEY, slug TEXT NOT NULL, domain TEXT NOT NULL, adapter TEXT NOT NULL,
         attempt INTEGER NOT NULL, started_at TEXT NOT NULL, finished_at TEXT NOT NULL DEFAULT '',
         worker_exit INTEGER, gate_exit INTEGER, gate_stdout_sha256 TEXT NOT NULL DEFAULT '',
-        duration_ms INTEGER NOT NULL DEFAULT 0, run_dir TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '');
+        duration_ms INTEGER NOT NULL DEFAULT 0, run_dir TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '',
+        constraints TEXT NOT NULL DEFAULT '[]');
       CREATE TABLE IF NOT EXISTS transitions (
         id INTEGER PRIMARY KEY, slug TEXT NOT NULL, from_state TEXT NOT NULL, to_state TEXT NOT NULL,
         event TEXT NOT NULL, created_at TEXT NOT NULL, evidence_revision_id INTEGER);
@@ -75,6 +78,15 @@ export class Ledger {
         id INTEGER PRIMARY KEY, slug TEXT NOT NULL, phase TEXT NOT NULL,
         body TEXT NOT NULL, created_at TEXT NOT NULL);
     `);
+
+    /* A run records which constraints applied to it. Without that there is
+       nothing for `recall` to join on, and recall would have to guess which
+       prior work is relevant — which is the fuzzy matching this whole design
+       avoids. Added by migration so an existing ledger keeps working. */
+    const columns = this.db.prepare(`PRAGMA table_info(runs)`).all() as { name: string }[];
+    if (!columns.some((column) => column.name === 'constraints')) {
+      this.db.exec(`ALTER TABLE runs ADD COLUMN constraints TEXT NOT NULL DEFAULT '[]'`);
+    }
   }
 
   /* projects */
@@ -180,9 +192,9 @@ export class Ledger {
   }
 
   /* runs — evidence the harness produced, never a worker's claim */
-  startRun(slug: string, domain: string, adapter: string, attempt: number, runDir: string): number {
-    const result = this.db.prepare('INSERT INTO runs (slug, domain, adapter, attempt, started_at, run_dir) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(slug, domain, adapter, attempt, now(), runDir);
+  startRun(slug: string, domain: string, adapter: string, attempt: number, runDir: string, constraints: string[] = []): number {
+    const result = this.db.prepare('INSERT INTO runs (slug, domain, adapter, attempt, started_at, run_dir, constraints) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(slug, domain, adapter, attempt, now(), runDir, JSON.stringify([...constraints].sort()));
     return Number(result.lastInsertRowid);
   }
 
@@ -205,6 +217,12 @@ export class Ledger {
       gate_stdout_sha256: r.gate_stdout_sha256 as string, duration_ms: Number(r.duration_ms),
       run_dir: r.run_dir as string, notes: r.notes as string,
     }));
+  }
+
+  /** Every run across every project. `recall` joins on constraints, not on slug:
+   *  a failure under the same constraint is relevant wherever it happened. */
+  allRuns(): RunRow[] {
+    return this.db.prepare('SELECT * FROM runs ORDER BY id').all() as unknown as RunRow[];
   }
 
   attemptsFor(slug: string, domain: string, adapter?: string): number {
