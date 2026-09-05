@@ -10,6 +10,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import YAML from 'yaml';
@@ -281,4 +282,48 @@ test('the dashboard design system is valid and its composite rule can fire', () 
     for (const id of requirement.verified_by) assert.ok(scenarios.has(id), `${requirement.id} cites unknown ${id}`);
   }
   for (const scenario of system.verification.scenarios) assert.ok(scenario.test_name.length > 0);
+});
+
+/* ---- LINT-33: the generated files, not only the recorded values ---- */
+
+test('LINT-33 catches a hand-edit to a generated file', () => {
+  // design.json records a hash for every generated file, and nothing read them.
+  // So editing tokens.css changed the file, left tokensHash untouched, and
+  // passed lint and the whole design gate. The contract says these files are
+  // generated and must be regenerated rather than edited; this is the mechanism
+  // for that sentence.
+  const dir = blueprint();
+  const tokens = join(dir, 'design', 'tokens.css');
+  writeFileSync(tokens, ':root { --ls-color-content: #111111; }');
+  const state = JSON.parse(readFileSync(join(dir, 'design', 'design.json'), 'utf8'));
+  state.provenance = { 'tokens.css': 'f'.repeat(64) };
+  writeFileSync(join(dir, 'design', 'design.json'), JSON.stringify(state));
+
+  const result = lintDir(dir);
+  const finding = result.errors.find((f) => f.id === 'LINT-33' && /edited by hand/.test(f.message));
+  assert.ok(finding, 'a generated file that no longer matches its recorded hash must fail');
+  assert.match(finding!.message, /the next regeneration discards the edit/);
+});
+
+test('LINT-33 passes when a generated file still matches what was recorded', () => {
+  const dir = blueprint();
+  const tokens = join(dir, 'design', 'tokens.css');
+  const body = ':root { --ls-color-content: #111111; }';
+  writeFileSync(tokens, body);
+  const state = JSON.parse(readFileSync(join(dir, 'design', 'design.json'), 'utf8'));
+  state.provenance = { 'tokens.css': createHash('sha256').update(body).digest('hex') };
+  writeFileSync(join(dir, 'design', 'design.json'), JSON.stringify(state));
+
+  assert.equal(lintDir(dir).errors.some((f) => /edited by hand/.test(f.message)), false);
+});
+
+test('a malformed design.json skips this rule without abandoning other domains', () => {
+  // The catch here once swallowed a ReferenceError, which made a check that
+  // never ran look exactly like a check that passed. It now narrows to parse
+  // failure, and must not break out of the domain loop either.
+  const dir = blueprint();
+  writeFileSync(join(dir, 'design', 'design.json'), '{ not json');
+  const result = lintDir(dir);
+  assert.equal(result.errors.some((f) => f.id === 'LINT-33'), false, 'unreadable state is LINT-27\'s business');
+  assert.ok(Array.isArray(result.warnings), 'and the rest of the lint still ran');
 });

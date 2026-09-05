@@ -14,6 +14,7 @@
  *      payload token budget (context is a finite resource).
  */
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join, isAbsolute, normalize } from 'node:path';
 import YAML from 'yaml';
 import { isContained, containedPath } from './integrity.ts';
@@ -479,11 +480,39 @@ export function lint(input: LintInput): LintResult {
               findings.push(err('LINT-33', where, 'design.system declares no tokens_hash, so nothing binds the contract to the tokens it was approved against.'));
             } else if (existsSync(statePath)) {
               try {
-                const actual = String(JSON.parse(readFileSync(statePath, 'utf8'))?.tokensHash ?? '');
+                const state = JSON.parse(readFileSync(statePath, 'utf8'));
+
+                /* Two hashes, two different edits. `tokensHash` is the approved
+                   value set: it moves when the studio changes a token, so this
+                   catches a regeneration nobody re-approved. */
+                const actual = String(state?.tokensHash ?? '');
                 if (actual && actual !== declared) {
                   findings.push(err('LINT-33', where, `tokens drift: design.system froze ${declared.slice(0, 12)}… but design.json now reports ${actual.slice(0, 12)}…. The tokens changed after the contract was written; re-approve them or restore the frozen set.`));
                 }
-              } catch { /* design.json unreadable is LINT-27's business, not this rule's */ }
+
+                /* `provenance` records the hash of each generated FILE. Nothing
+                   read it, so hand-editing tokens.css changed the file, left
+                   tokensHash untouched, and passed every check. The contract
+                   says these files are generated and must be regenerated rather
+                   than edited — this is the mechanism for that sentence. */
+                for (const [name, recorded] of Object.entries(state?.provenance ?? {})) {
+                  const generated = join(input.dir, 'design', name);
+                  if (!existsSync(generated) || typeof recorded !== 'string') continue;
+                  const onDisk = createHash('sha256').update(readFileSync(generated)).digest('hex');
+                  if (onDisk !== recorded) {
+                    findings.push(err('LINT-33', where, `design/${name} was edited by hand: it hashes to ${onDisk.slice(0, 12)}… but the studio recorded ${recorded.slice(0, 12)}…. It is a generated file — change the contract and regenerate, because the next regeneration discards the edit.`));
+                  }
+                }
+              } catch (error) {
+                /* Only a malformed design.json is this rule's to ignore — that
+                   is LINT-27's business. A bare `catch {}` here swallowed a
+                   ReferenceError once and made a check that never ran look
+                   exactly like a check that passed. Anything that is not a
+                   parse failure is a defect in this linter and must surface. */
+                // A malformed design.json means this rule cannot run for this
+                // surface. It must not abandon the remaining domains.
+                if (!(error instanceof SyntaxError)) throw error;
+              }
             }
 
             /* LINT-34: a surface that does not say what it is cannot be checked
