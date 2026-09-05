@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { checkFocusVisible, checkReducedMotion, checkOverflow, findBrowser, probe } from '../src/designbrowser.ts';
+import { checkFocusVisible, checkReducedMotion, checkOverflow, findBrowser, probe, inlineStylesheets } from '../src/designbrowser.ts';
 import { loadDesignSystem, checkStates, screenFor } from '../src/designcheck.ts';
 
 const DIR = 'blueprints/freelance-dashboard';
@@ -45,12 +45,15 @@ test('DSC-05 is vacuous when the contract does not require reduced motion', () =
 
 /* ---- DSC-03: states ---- */
 
-function surfaceDir(files: Record<string, string>): string {
+function surfaceDir(files: Record<string, string>, tokensCss?: string): string {
   const dir = mkdtempSync(join(tmpdir(), 'aose-states-'));
   mkdirSync(join(dir, 'design', 'screens'), { recursive: true });
   for (const [name, body] of Object.entries(files)) {
     writeFileSync(join(dir, 'design', 'screens', name), body);
   }
+  // Written only when a test needs the guard active: `guardTokens` reads token
+  // names from here, and with no tokens.css there is nothing to guard against.
+  if (tokensCss !== undefined) writeFileSync(join(dir, 'design', 'tokens.css'), tokensCss);
   return dir;
 }
 
@@ -195,7 +198,9 @@ test('the shipped screens fit every declared viewport', {
   ], browser!);
 
   assert.equal(result.status, 'pass', result.findings.join('\n'));
-  assert.match(result.detail, /8 screen\(s\) measured at 360, 768, 1440px/);
+  // Measured-of-total, not just total: a sweep that skipped a screen has to be
+  // visible here, or a partial pass reads exactly like a complete one.
+  assert.match(result.detail, /^24 of 24 screen\/width combination\(s\) measured at 360, 768, 1440px$/);
 });
 
 test('a probe that returns a non-array is reported, not crashed on', () => {
@@ -212,4 +217,203 @@ test('a probe that returns a non-array is reported, not crashed on', () => {
   const focus = checkFocusVisible(system, dir, [{ id: 'board', states: ['populated'] }], browser ?? '/nonexistent');
   assert.notEqual(focus.status, 'pass', 'an unreadable probe must never read as a pass');
   assert.doesNotThrow(() => checkOverflow(system, dir, [{ id: 'board', states: ['populated'] }], browser ?? '/nonexistent'));
+});
+
+
+/* ---- the unstyled-page guard ---- */
+
+/**
+ * The flake this guard exists for, reproduced deterministically.
+ *
+ * Under full-suite load a `file://` stylesheet intermittently failed to load.
+ * The DOM was complete and the labels were right, so the probe returned a full
+ * array — but `outline: 2px solid var(--ls-color-focus)` is invalid at
+ * computed-value time once the token is missing, so the ring did not change
+ * colour, it disappeared. DSC-04 then reported every interactive element of
+ * that screen as a focus defect. Measured directly: with tokens.css absent,
+ * profile-empty.html reports all 8 of its elements unfocusable while
+ * `:focus-visible` still matches on every one.
+ *
+ * Here the same condition is forced: the tokens file exists on disk, so the
+ * harness reads real names from it, but the screen links a stylesheet the
+ * browser cannot fetch.
+ */
+const GUARDED_SCREEN = `<html><head>
+  <link rel="stylesheet" href="../tokens-not-delivered.css">
+  <style>
+    :is(a, button):focus-visible { outline: 2px solid var(--ls-color-focus); outline-offset: 2px; }
+  </style>
+</head><body>
+  <a href="#a">Board</a><a href="#b">Inbox</a><button>Save profile</button>
+</body></html>`;
+
+const TOKENS = ':root { --ls-color-focus: #17527D; --ls-color-bg: #fff; }';
+
+test('an unstyled page is reported as unmeasured, never as a design defect', {
+  skip: browser ? false : 'no chromium cached',
+}, () => {
+  const dir = surfaceDir({ 'board.html': GUARDED_SCREEN }, TOKENS);
+  const result = checkFocusVisible(loadDesignSystem(DIR), dir, [{ id: 'board', states: ['populated'] }], browser!);
+
+  assert.equal(result.status, 'vacuous', `got ${result.status}: ${result.findings.join(' | ')}`);
+  assert.notEqual(result.status, 'fail', 'an unread stylesheet is not a missing focus ring');
+  assert.match(result.findings.join('\n'), /stylesheet did not load/);
+  // The exact string the old code produced. If it comes back, the guard is off.
+  assert.doesNotMatch(result.findings.join('\n'), /shows no focus indicator/);
+});
+
+test('the guard does not fire on a page whose tokens did load', {
+  skip: browser ? false : 'no chromium cached',
+}, () => {
+  // The other half, and the one that matters most: a guard that fired always
+  // would silently turn all three browser checks vacuous and nobody would
+  // notice, because vacuous does not fail a build.
+  const dir = surfaceDir({
+    'board.html': GUARDED_SCREEN.replace('../tokens-not-delivered.css', '../tokens.css'),
+  }, TOKENS);
+  const result = checkFocusVisible(loadDesignSystem(DIR), dir, [{ id: 'board', states: ['populated'] }], browser!);
+
+  assert.equal(result.status, 'pass', result.findings.join('\n'));
+  assert.match(result.detail, /3 interactive element\(s\) focused across 1 of 1 screen/);
+});
+
+test('a real defect on a page that loaded outranks a page that did not', {
+  skip: browser ? false : 'no chromium cached',
+}, () => {
+  // The ordering rule in `verdict`. An incomplete sweep must never mask a
+  // defect that was actually observed, or the guard becomes a way to hide
+  // failures by breaking a stylesheet.
+  const dir = surfaceDir({
+    // loads its tokens, and genuinely has no focus style
+    'board.html': '<html><head><link rel="stylesheet" href="../tokens.css">'
+      + '<style>a:focus-visible{outline:none}</style></head>'
+      + '<body><a href="#a">Board</a></body></html>',
+    // cannot load its tokens
+    'inbox.html': GUARDED_SCREEN,
+  }, TOKENS);
+
+  const result = checkFocusVisible(loadDesignSystem(DIR), dir, [
+    { id: 'board', states: ['populated'] },
+    { id: 'inbox', states: ['populated'] },
+  ], browser!);
+
+  assert.equal(result.status, 'fail', 'a measured defect wins over an unmeasured screen');
+  const text = result.findings.join('\n');
+  assert.match(text, /board\.html: <a> "Board" shows no focus indicator/);
+  assert.match(text, /inbox\.html: .*stylesheet did not load/);
+  assert.match(result.detail, /1 screen\(s\) could not be measured/);
+});
+
+
+/* ---- inlining, the reason the guard rarely has to fire ---- */
+
+test('a relative stylesheet is inlined into the copy under test', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'aose-inline-'));
+  writeFileSync(join(dir, 'screen.css'), '.a { color: red; }');
+  const out = inlineStylesheets('<link rel="stylesheet" href="screen.css">', dir);
+  assert.match(out, /<style data-aose-inlined="screen\.css">/);
+  assert.match(out, /\.a \{ color: red; \}/);
+  assert.doesNotMatch(out, /<link/, 'the link must be replaced, not duplicated');
+});
+
+test('sheets that would change meaning when moved are left alone', () => {
+  // url() and @import resolve against the stylesheet's own location. Inlining
+  // one silently repoints every reference in it at the document instead.
+  const dir = mkdtempSync(join(tmpdir(), 'aose-inline-'));
+  writeFileSync(join(dir, 'a.css'), '@font-face { src: url(./f.woff2); }');
+  writeFileSync(join(dir, 'b.css'), '@import "other.css";');
+  for (const name of ['a.css', 'b.css']) {
+    const tag = `<link rel="stylesheet" href="${name}">`;
+    assert.equal(inlineStylesheets(tag, dir), tag, `${name} must keep its link`);
+  }
+});
+
+test('what cannot be inlined keeps its link', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'aose-inline-'));
+  for (const href of ['https://cdn.example/x.css', '//cdn.example/x.css', 'gone.css']) {
+    const tag = `<link rel="stylesheet" href="${href}">`;
+    assert.equal(inlineStylesheets(tag, dir), tag, href);
+  }
+  // A non-stylesheet link is not ours to touch.
+  const icon = '<link rel="icon" href="favicon.ico">';
+  assert.equal(inlineStylesheets(icon, dir), icon);
+});
+
+test('a stylesheet cannot break out of the style block it is inlined into', () => {
+  // Defence against the file being able to inject markup into the page that
+  // measures it. `</style>` is not valid CSS, so refusing is free.
+  const dir = mkdtempSync(join(tmpdir(), 'aose-inline-'));
+  writeFileSync(join(dir, 'evil.css'), '.a{}</style><script>document.title="owned"</script>');
+  const tag = '<link rel="stylesheet" href="evil.css">';
+  assert.equal(inlineStylesheets(tag, dir), tag);
+});
+
+test('inlining leaves the cascade order intact', () => {
+  // Two sheets where the second overrides the first. If inlining reordered
+  // them, every computed colour this module measures would be the wrong one.
+  const dir = mkdtempSync(join(tmpdir(), 'aose-inline-'));
+  writeFileSync(join(dir, 'one.css'), '.a { color: red; }');
+  writeFileSync(join(dir, 'two.css'), '.a { color: blue; }');
+  const out = inlineStylesheets(
+    '<link rel="stylesheet" href="one.css"><link rel="stylesheet" href="two.css">', dir);
+  assert.ok(out.indexOf('color: red') < out.indexOf('color: blue'), 'order must be preserved');
+});
+
+
+/* ---- DSC-04 measures the rule, not the browser's modality guess ---- */
+
+test('a ring declared only under :focus-visible is found', {
+  skip: browser ? false : 'no chromium cached',
+}, () => {
+  // The regression guard for the flake. Reading `el.matches(':focus-visible')`
+  // returned false on twelve consecutive probes of a page that plainly has a
+  // ring, so a check built on it reported every element defective. This must
+  // pass on every run, not most of them.
+  const dir = surfaceDir({
+    'board.html': '<html><head><link rel="stylesheet" href="../tokens.css">'
+      + '<style>a:focus-visible { outline: 2px solid var(--ls-color-focus); }</style>'
+      + '</head><body><a href="#a">Board</a></body></html>',
+  }, TOKENS);
+  const result = checkFocusVisible(loadDesignSystem(DIR), dir, [{ id: 'board', states: ['populated'] }], browser!);
+  assert.equal(result.status, 'pass', result.findings.join('\n'));
+});
+
+test('a ring declared under plain :focus counts as an indicator', {
+  skip: browser ? false : 'no chromium cached',
+}, () => {
+  // DSC-04 asks whether there is an indicator, not which pseudo-class spells
+  // it. Failing this design would be a false alarm.
+  const dir = surfaceDir({
+    'board.html': '<html><head><link rel="stylesheet" href="../tokens.css">'
+      + '<style>a:focus { box-shadow: 0 0 0 2px var(--ls-color-focus); }</style>'
+      + '</head><body><a href="#a">Board</a></body></html>',
+  }, TOKENS);
+  const result = checkFocusVisible(loadDesignSystem(DIR), dir, [{ id: 'board', states: ['populated'] }], browser!);
+  assert.equal(result.status, 'pass', result.findings.join('\n'));
+});
+
+test('a page with no focus rule fails and says that is why', {
+  skip: browser ? false : 'no chromium cached',
+}, () => {
+  const dir = surfaceDir({
+    'board.html': '<html><head><link rel="stylesheet" href="../tokens.css">'
+      + '<style>a { color: blue; }</style></head><body><a href="#a">Board</a></body></html>',
+  }, TOKENS);
+  const result = checkFocusVisible(loadDesignSystem(DIR), dir, [{ id: 'board', states: ['populated'] }], browser!);
+  assert.equal(result.status, 'fail');
+  assert.match(result.findings[0], /declares no :focus rule at all/);
+});
+
+test('a focus rule inside a media query is still found', {
+  skip: browser ? false : 'no chromium cached',
+}, () => {
+  // Rules nest. A harvest that only walked the top level would miss these and
+  // report a false defect on every element the media query covers.
+  const dir = surfaceDir({
+    'board.html': '<html><head><link rel="stylesheet" href="../tokens.css"><style>'
+      + '@media (min-width: 1px) { a:focus-visible { outline: 2px solid var(--ls-color-focus); } }'
+      + '</style></head><body><a href="#a">Board</a></body></html>',
+  }, TOKENS);
+  const result = checkFocusVisible(loadDesignSystem(DIR), dir, [{ id: 'board', states: ['populated'] }], browser!);
+  assert.equal(result.status, 'pass', result.findings.join('\n'));
 });

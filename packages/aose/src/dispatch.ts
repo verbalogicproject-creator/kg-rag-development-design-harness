@@ -15,7 +15,7 @@ import type { AdapterOptions } from './adapters/index.ts';
 import { readCodexLastMessage } from './adapters/codex.ts';
 import { buildPayload, estimateTokens } from './payload.ts';
 import { recall } from './recall.ts';
-import { runGate, cleanEnv } from './gate.ts';
+import { runGate, cleanEnv, failureNote } from './gate.ts';
 import type { GateResult } from './gate.ts';
 import type { Constitution, Spec, Task } from './schema.ts';
 import type { Ledger } from './ledger.ts';
@@ -219,7 +219,11 @@ export async function dispatch(ledger: Ledger, options: DispatchOptions): Promis
       gate_exit: gate.exit_code,
       gate_stdout_sha256: gate.stdout_sha256,
       duration_ms: worker.ms + gate.duration_ms,
-      notes: worker.timedOut ? 'worker timed out' : gate.timed_out ? 'gate timed out' : '',
+      /* The one line worth remembering, on every run rather than only on the
+         rare timeout. `recall` reads exactly this field, so a gate that fails
+         the ordinary way — the common case — used to teach the next worker
+         nothing at all. */
+      notes: failureNote(gate, { worktree, attempt, workerTimedOut: worker.timedOut }),
     });
 
     const progressPath = join(worktree, '.aose', 'PROGRESS.md');

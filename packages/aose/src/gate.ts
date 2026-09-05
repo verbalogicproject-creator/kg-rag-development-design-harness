@@ -95,3 +95,75 @@ export async function runGate(command: string, cwd: string, options: GateOptions
     log_path: logPath,
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* Turning a gate result into one line worth remembering.              */
+/* ------------------------------------------------------------------ */
+
+/** Lines that are structure, not diagnosis — a stack frame says where, not what. */
+const NOISE = /^\s*(at\s|node:internal|\^+\s*$|Node\.js v|\s*$)/;
+/** Where a test runner announces the failure itself rather than the summary. */
+const STDOUT_SIGNAL = /^\s*(not ok\b|error:|AssertionError|# fail\b|FAIL\b|✗|×)/;
+
+/**
+ * Strip anything that varies between two runs of the same failure.
+ *
+ * The worktree path ends in `-a<N>`, so leaving it in makes attempt 1 and
+ * attempt 2 of one cause look like two causes. `recall` groups by this exact
+ * string, so a leaked path would hold `seen_in` at 1 forever and quietly turn
+ * "this fails every time" into "this happened once, twice".
+ */
+export function redactRunPaths(line: string, worktree?: string): string {
+  let out = line;
+  if (worktree) {
+    out = out.split(worktree).join('<worktree>');
+    out = out.split(`file://${worktree}`).join('<worktree>');
+  }
+  /* Any other attempt-numbered worktree, including one from a prior run whose
+     path this run never knew. */
+  out = out.replace(/(?:file:\/\/)?\S*[/\\]\.aose[/\\]worktrees[/\\]\S*?-a\d+/g, '<worktree>');
+  return out.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * The single most informative line about why a gate failed, or how it passed.
+ *
+ * This is what `recall` carries to the next cold worker, so it has to be a
+ * cause rather than a restatement of the exit code. Deterministic and
+ * framework-tolerant: a count is reported only when the output actually
+ * contains one, never inferred.
+ */
+export function failureNote(
+  gate: Pick<GateResult, 'exit_code' | 'timed_out' | 'stdout' | 'stderr' | 'command'>,
+  options: { worktree?: string; attempt?: number; workerTimedOut?: boolean } = {},
+): string {
+  const { worktree, attempt } = options;
+  const clean = (line: string) => redactRunPaths(line, worktree).slice(0, 160);
+
+  if (options.workerTimedOut) return 'worker timed out before the gate ran';
+  if (gate.timed_out) return `gate timed out running \`${gate.command}\``;
+
+  if (gate.exit_code === 0) {
+    const count = /^#\s*pass\s+(\d+)/m.exec(gate.stdout)?.[1];
+    const where = attempt ? ` on attempt ${attempt}` : '';
+    return count
+      ? `gate passed${where} — ${count} test(s) via \`${gate.command}\``
+      : `gate passed${where} via \`${gate.command}\``;
+  }
+
+  /* stderr first: a module that would not load, a syntax error, a crash. Those
+     are the failures a worker most needs told, and they never reach stdout. */
+  for (const line of gate.stderr.split('\n')) {
+    if (NOISE.test(line)) continue;
+    const text = clean(line);
+    if (text) return text;
+  }
+  /* Then the runner's own failure markers on stdout. A TAP summary line is a
+     count of failures, not a reason, so the marker lines come first. */
+  for (const line of gate.stdout.split('\n')) {
+    if (!STDOUT_SIGNAL.test(line)) continue;
+    const text = clean(line);
+    if (text) return text;
+  }
+  return `gate exited ${gate.exit_code ?? 'null'} with no diagnostic output`;
+}
