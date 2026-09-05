@@ -9,7 +9,10 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { failureNote, redactRunPaths } from '../src/gate.ts';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { failureNote, redactRunPaths, runGate } from '../src/gate.ts';
 
 const WT = '/root/fable-blue/.aose/worktrees/freelance-dashboard/core-opportunity-fake-a1';
 
@@ -117,8 +120,12 @@ test('a pass records its test count only when the output has one', () => {
 test('a timed-out worker outranks a timed-out gate', () => {
   // A gate that ran against a half-finished worktree tells you about the
   // worker, not the code. Naming the gate would point at the wrong thing.
-  const note = failureNote(result({ timed_out: true }), { workerTimedOut: true });
-  assert.equal(note, 'worker timed out before the gate ran');
+  const note = failureNote(result({ exit_code: 1 }), { workerTimedOut: true });
+  assert.match(note, /^worker timed out; the gate then ran against an unfinished worktree and exited 1$/);
+  // Verbatim from the ui/client run: the worker hit 900s, then the gate failed
+  // in 5.6s on the half-written worktree. Claiming the gate had not run would
+  // put a false statement into the next worker's recall.
+  assert.doesNotMatch(note, /before the gate ran/);
   assert.match(failureNote(result({ timed_out: true })), /^gate timed out/);
 });
 
@@ -128,4 +135,42 @@ test('a note stays inside the budget recall slices to', () => {
   // would silently merge into one.
   const note = failureNote(result({ stderr: `Error: ${'x'.repeat(500)}` }));
   assert.ok(note.length <= 160, `note was ${note.length} chars`);
+});
+
+/* ---- a gate must not run outside the worktree it was given ---- */
+
+test('a gate that would escape the worktree is refused before it spawns', async () => {
+  /* npm resolves package.json by walking up. The worktrees live inside this
+   * repository, so `npm run <script>` in a worktree with no package.json finds
+   * the monorepo root: `npm run` there prints "Lifecycle scripts included in
+   * fable-blue@0.2.0" and lists this repo's own commands.
+   *
+   * Observed on ui/client, whose worker timed out having written nothing. It
+   * failed only because the root defines no `build`. A task gated on
+   * `npm run test` would have run the harness's own suite from the repository
+   * root and could have exited 0 — a passing gate built from evidence the
+   * worker never produced. */
+  const empty = mkdtempSync(join(tmpdir(), 'aose-gate-'));
+  const result = await runGate('npm run build', empty, { timeoutMinutes: 1 });
+
+  assert.equal(result.exit_code, 1);
+  assert.equal(result.timed_out, false);
+  assert.match(result.stderr, /walk up out of the worktree/);
+  assert.equal(result.duration_ms, 0, 'nothing may be spawned');
+});
+
+test('a gate with its own package.json runs normally', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'aose-gate-'));
+  writeFileSync(join(dir, 'package.json'),
+    JSON.stringify({ name: 'x', private: true, scripts: { build: 'node -e "console.log(1)"' } }));
+  const result = await runGate('npm run build', dir, { timeoutMinutes: 1 });
+  assert.equal(result.exit_code, 0, result.stderr);
+});
+
+test('a gate that does not use npm is never refused', async () => {
+  // The check must be narrow. Only npm walks up like this; refusing a plain
+  // `node` gate would break every domain that does not ship a package.json.
+  const empty = mkdtempSync(join(tmpdir(), 'aose-gate-'));
+  const result = await runGate('node -e "process.exit(0)"', empty, { timeoutMinutes: 1 });
+  assert.equal(result.exit_code, 0, result.stderr);
 });

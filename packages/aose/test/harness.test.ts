@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, cpSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import YAML from 'yaml';
-import { Harness, matchBlocked } from '../src/harness.ts';
+import { Harness, matchBlocked, isSettledFailure } from '../src/harness.ts';
 import { Ledger } from '../src/ledger.ts';
 import { renderMarkdown, buildBlueprint } from '../src/export.ts';
 import type { FetchLike } from '../src/research.ts';
@@ -237,6 +237,40 @@ test('the identical blueprint is not re-dispatched to the adapter it already fai
     () => harness.dispatch('tictactoe', { domain: 'core/engine', adapter: 'fake', maxAttempts: 1 }),
     /already exhausted its attempts on "fake" with this exact blueprint/,
   );
+});
+
+test('only a gate that ran settles the question', () => {
+  // Tested directly: the timeout branch cannot be reached through a real
+  // dispatch here, because the limit is in minutes and the fixture worker
+  // finishes in milliseconds. The first version of this test exercised only
+  // the branch it could reach and proved nothing about the other.
+  const ran = (exit: number) => ({ gate: { timed_out: false, exit_code: exit } });
+
+  assert.equal(isSettledFailure([ran(1)]), true, 'a gate that ran and failed is an answer');
+  // The real shape, taken from the ui/client run: the gate DOES run after a
+  // worker timeout, against a worktree the worker never finished. An earlier
+  // fixture paired the timeout with `gate: null`, which never happens — and
+  // the redundant null made the timeout check look untested when it was not.
+  assert.equal(isSettledFailure([{ worker_timed_out: true, gate: { timed_out: false, exit_code: 1 } }]), false,
+    'a worker that never finished says nothing about the blueprint, whatever the gate then made of the leftovers');
+  assert.equal(isSettledFailure([{ gate: { timed_out: true, exit_code: null } }]), false,
+    'a gate that never finished says nothing either');
+  assert.equal(isSettledFailure([{ gate: null }]), false, 'no gate ran at all');
+  assert.equal(isSettledFailure([]), false, 'nothing ran');
+
+  // Only the last attempt decides: an earlier timeout that was retried and
+  // then answered properly must still count as settled.
+  assert.equal(isSettledFailure([{ worker_timed_out: true, gate: ran(1).gate }, ran(1)]), true);
+  // And the reverse — a settled failure followed by a timeout is not settled.
+  assert.equal(isSettledFailure([ran(1), { worker_timed_out: true, gate: ran(1).gate }]), false);
+});
+
+test('a gate that ran and failed is recorded, so the identical run is refused', async () => {
+  const harness = await approved();
+  await harness.dispatch('tictactoe', {
+    domain: 'core/engine', adapter: 'fake', maxAttempts: 1, timeoutMinutes: 5,
+  });
+  assert.equal(harness.ledger.findings('tictactoe', 'blocked').length, 1);
 });
 
 test('the blocked key needs the domain, the adapter and the blueprint to all match', () => {

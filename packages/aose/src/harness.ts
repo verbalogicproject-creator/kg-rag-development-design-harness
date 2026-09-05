@@ -407,8 +407,17 @@ export class Harness {
           apply(this.ledger, slug, allPassed ? 'gate_pass' : 'gate_partial', null);
         } else {
           /* Record what failed, so the identical run can be refused rather
-             than repeated. */
-          this.ledger.addFinding(slug, 'blocked', { domain, adapter, digest: this.approvalDigest(slug) });
+             than repeated — but only when the failure was the blueprint's.
+             A timeout is a budget being too small, not an answer about the
+             work: the same input under a longer `--timeout` can genuinely
+             finish. Recording one would retire the (domain, adapter) pair for
+             a reason that says nothing about whether it can pass. Observed on
+             ui/client, the largest domain, which timed out at 900s. */
+          if (!isSettledFailure(result.attempts)) {
+            options.onEvent?.(`[${adapter}] ${domain} timed out, so it is not recorded as a settled failure — re-run with a longer --timeout`);
+          } else {
+            this.ledger.addFinding(slug, 'blocked', { domain, adapter, digest: this.approvalDigest(slug) });
+          }
           apply(this.ledger, slug, 'gate_fail', null);
           apply(this.ledger, slug, 'exhausted', null);
           break;
@@ -688,4 +697,29 @@ export function matchBlocked(
     }
   }
   return null;
+}
+
+/**
+ * Whether a failed dispatch settled the question it was asked.
+ *
+ * A gate that ran and returned non-zero is an answer: this blueprint, through
+ * this worker, does not pass. A run that hit its time limit is not — the budget
+ * was too small, and the same input under a longer `--timeout` can genuinely
+ * finish. Only a settled failure may be recorded and used to refuse the next
+ * identical run, or a slow domain would be retired for a reason that says
+ * nothing about whether it can succeed.
+ *
+ * Pure and exported because the timeout branch is unreachable from a test
+ * through a real dispatch: the limit is expressed in minutes and the fixture
+ * worker finishes in milliseconds. The first test written for this exercised
+ * only the branch it could reach and proved nothing about the other.
+ */
+export function isSettledFailure(
+  attempts: { worker_timed_out?: boolean; gate?: { timed_out?: boolean; exit_code?: number | null } | null }[],
+): boolean {
+  const last = attempts.at(-1);
+  if (!last) return false;                       // nothing ran; nothing was settled
+  if (last.worker_timed_out) return false;       // the worker never finished
+  if (last.gate?.timed_out) return false;        // the gate never finished
+  return last.gate != null;                      // a gate that ran gave an answer
 }

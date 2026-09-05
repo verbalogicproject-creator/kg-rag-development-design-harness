@@ -8,7 +8,7 @@
  */
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 export interface GateResult {
@@ -47,6 +47,25 @@ export function cleanEnv(extra: Record<string, string> = {}): Record<string, str
 export async function runGate(command: string, cwd: string, options: GateOptions = {}): Promise<GateResult> {
   const timeoutMs = (options.timeoutMinutes ?? 15) * 60_000;
   const started = Date.now();
+
+  /* Refuse before spawning, rather than let the command resolve somewhere the
+     worker never touched. A gate that runs outside its worktree can report a
+     pass earned by another project's files. */
+  const escape = gateEscapesWorktree(command, cwd);
+  if (escape) {
+    const stderr = `aose: gate refused — ${escape}\n`;
+    if (options.runDir) {
+      mkdirSync(options.runDir, { recursive: true });
+      writeFileSync(join(options.runDir, 'gate.log'),
+        `$ ${command}\ncwd: ${cwd}\nexit: 1 (refused before spawning)\n\n--- stderr ---\n${stderr}`);
+    }
+    return {
+      command, exit_code: 1, timed_out: false, duration_ms: 0,
+      stdout: '', stderr,
+      stdout_sha256: createHash('sha256').update('').digest('hex'),
+      log_path: options.runDir ? join(options.runDir, 'gate.log') : '',
+    };
+  }
 
   const result = await new Promise<{ code: number | null; stdout: string; stderr: string; timedOut: boolean }>((resolve) => {
     const child = spawn(command, {
@@ -140,7 +159,16 @@ export function failureNote(
   const { worktree, attempt } = options;
   const clean = (line: string) => redactRunPaths(line, worktree).slice(0, 160);
 
-  if (options.workerTimedOut) return 'worker timed out before the gate ran';
+  /* The gate still runs after a worker timeout — against a worktree the worker
+     never finished filling. Measured: ui/client timed out at 900s and its gate
+     then failed in 5.6s on `Missing script: "build"`, which describes the
+     unfinished worktree rather than the design. Saying the gate did not run
+     would put a false statement into the next worker's recall. */
+  if (options.workerTimedOut) {
+    return gate.exit_code === 0
+      ? 'worker timed out, but the gate passed on what it had written'
+      : `worker timed out; the gate then ran against an unfinished worktree and exited ${gate.exit_code ?? 'null'}`;
+  }
   if (gate.timed_out) return `gate timed out running \`${gate.command}\``;
 
   if (gate.exit_code === 0) {
@@ -170,4 +198,29 @@ export function failureNote(
     if (text) return text;
   }
   return `gate exited ${gate.exit_code ?? 'null'} with no diagnostic output`;
+}
+
+/**
+ * Whether a gate command would run outside the worktree it was given.
+ *
+ * npm resolves `package.json` by walking up the directory tree. The worktrees
+ * live inside the repository, so a gate that runs `npm run <script>` in a
+ * worktree that has no package.json of its own finds the MONOREPO ROOT and
+ * runs the harness's scripts. Measured: `npm run` in an empty worktree prints
+ * "Lifecycle scripts included in fable-blue@0.2.0" and lists this repository's
+ * own commands.
+ *
+ * The danger is not the error it produced here — that was luck, because the
+ * root happens to define no `build`. A task whose gate is `npm run test` would
+ * have run the harness's entire suite from the repository root and could exit
+ * 0, producing a passing gate from evidence the worker never created. That is
+ * precisely the failure this harness exists to prevent, so the gate refuses to
+ * run rather than risk reporting it.
+ */
+export function gateEscapesWorktree(command: string, worktree: string): string | null {
+  if (!/\bnpm\b/.test(command)) return null;
+  if (existsSync(join(worktree, 'package.json'))) return null;
+  return 'the gate runs npm but the worktree has no package.json, so npm would walk up out of the '
+    + 'worktree and run the enclosing project\'s scripts. The worker has not produced the file its '
+    + 'gate depends on; a result from here would not be about this domain.';
 }
