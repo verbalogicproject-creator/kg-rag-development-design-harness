@@ -1,6 +1,6 @@
 {
   "name": "fable-blue",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "AOSE v2 \u2014 the unified idea \u2192 blueprint \u2192 implementation harness (merges the Codex process layer and the Antigravity artifact layer, grounded in verified research)",
   "type": "module",
@@ -21,5 +21,6 @@
     "xagent": "node packages/aose/src/cli.ts xagent tictactoe --adapters claude,codex,agy",
     "kg:build": "node --experimental-strip-types packages/design-kg/src/cli.ts build",
     "kg:ask": "node --experimental-strip-types packages/design-kg/src/cli.ts"
-  }
+  },
+  "license": "Apache-2.0"
 }

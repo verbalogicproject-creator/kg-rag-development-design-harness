@@ -1,16 +1,25 @@
 {
   "name": "aose",
-  "version": "2.0.0",
-  "description": "Agent-Oriented Software Engineering harness v2: constitution → brainstorm → research → compile → lint → review → approve → dispatch → gate → converge → export → archive",
+  "version": "2.1.0",
+  "description": "Agent-Oriented Software Engineering harness v2: constitution \u2192 brainstorm \u2192 research \u2192 compile \u2192 lint \u2192 review \u2192 approve \u2192 dispatch \u2192 gate \u2192 converge \u2192 export \u2192 archive",
   "type": "module",
-  "engines": { "node": ">=24" },
-  "bin": { "aose": "./src/cli.ts" },
+  "engines": {
+    "node": ">=24"
+  },
+  "bin": {
+    "aose": "./src/cli.ts"
+  },
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/schema.ts",
     "./lint": "./src/lint.ts"
   },
-  "scripts": { "test": "node --test \"test/**/*.test.ts\"" },
-  "dependencies": { "yaml": "^2.8.1", "zod": "^4.1.0" },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.ts\""
+  },
+  "dependencies": {
+    "yaml": "^2.8.1",
+    "zod": "^4.1.0"
+  },
   "license": "MIT"
 }

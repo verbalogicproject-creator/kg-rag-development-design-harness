@@ -2,12 +2,18 @@
   "name": "@aose/design-kg",
   "version": "0.1.0",
   "private": true,
-  "description": "The design knowledge graph — curated primitives, closed relations, deterministic build",
+  "description": "The design knowledge graph \u2014 curated primitives, closed relations, deterministic build",
   "type": "module",
-  "engines": { "node": ">=24" },
-  "exports": { ".": "./src/query.ts", "./build": "./src/build.ts" },
+  "engines": {
+    "node": ">=24"
+  },
+  "exports": {
+    ".": "./src/query.ts",
+    "./build": "./src/build.ts"
+  },
   "scripts": {
     "build": "node --experimental-strip-types -e \"import('./src/build.ts').then(m=>{const r=m.build('packages/design-kg/curated','packages/design-kg/ls-design.db');console.log(r.problems.length?r.problems.join('\\n'):r.checksum);process.exit(r.problems.length?1:0)})\"",
     "test": "node --test --experimental-strip-types test/*.test.ts"
-  }
+  },
+  "license": "Apache-2.0"
 }
