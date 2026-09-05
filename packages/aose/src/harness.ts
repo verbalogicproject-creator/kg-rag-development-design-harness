@@ -312,6 +312,7 @@ export class Harness {
   async dispatch(slug: string, options: {
     domain?: string; adapter?: string; dryRun?: boolean; fixtureRoot?: string;
     maxAttempts?: number; timeoutMinutes?: number; bypassSandbox?: boolean;
+    maxTurns?: number; model?: string;
     onEvent?: (message: string) => void;
   } = {}): Promise<DispatchResult[]> {
     const project = this.requireProject(slug);
@@ -395,7 +396,7 @@ export class Harness {
         fixtureRoot: options.fixtureRoot,
         seed,
         dryRun: options.dryRun,
-        adapterOptions: { bypassSandbox: options.bypassSandbox },
+        adapterOptions: { bypassSandbox: options.bypassSandbox, maxTurns: options.maxTurns, model: options.model },
         onEvent: options.onEvent,
       });
       results.push(result);

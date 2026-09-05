@@ -55,6 +55,8 @@ const USAGE = `aose — Agent-Oriented Software Engineering harness v2
     --dry-run         Build payloads and print command lines; spawn nothing
     --attempts N      Override the attempt bound
     --timeout N       Per-attempt timeout in minutes
+    --turns N         Override the worker's turn budget (claude, agy)
+    --model M         Override the worker's model
     --bypass-sandbox  Codex only: skip the landlock sandbox (PRoot fallback)
 
   Global
@@ -75,6 +77,7 @@ const { values, positionals } = parseArgs({
     root: { type: 'string' }, dir: { type: 'string' }, file: { type: 'string' },
     by: { type: 'string' }, domain: { type: 'string' }, adapter: { type: 'string' }, reason: { type: 'string' },
     fixture: { type: 'string' }, attempts: { type: 'string' }, timeout: { type: 'string' },
+    turns: { type: 'string' }, model: { type: 'string' },
     adapters: { type: 'string' },
     url: { type: 'string' }, name: { type: 'string' }, force: { type: 'boolean' },
     screen: { type: 'string' }, href: { type: 'string' },
@@ -252,6 +255,13 @@ try {
         fixtureRoot: values.fixture as string | undefined,
         maxAttempts: values.attempts ? Number(values.attempts) : undefined,
         timeoutMinutes: values.timeout ? Number(values.timeout) : undefined,
+        /* The agent-computer interface is a first-order lever independent of
+           the model, and these two were reachable in the adapters and nowhere
+           else. ui/client needed them: 13 deliverables plus 22 seeded design
+           files is more reading than a 40-turn budget leaves room to write
+           against. */
+        maxTurns: values.turns ? Number(values.turns) : undefined,
+        model: values.model as string | undefined,
         bypassSandbox: Boolean(values['bypass-sandbox']),
         onEvent: (message) => { if (!json) process.stdout.write(`${message}\n`); },
       });
