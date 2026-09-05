@@ -362,7 +362,16 @@ export class Harness {
          digest, because running an unchanged blueprint through a DIFFERENT
          worker is the whole cross-agent reproducibility protocol. */
       if (!options.dryRun) {
-        const dead = this.blockedBefore(slug, domain, adapter, this.approvalDigest(slug));
+        const digest = this.approvalDigest(slug);
+        /* Already passed, same worker, same bytes. Re-running it spends real
+           budget to reproduce a result the ledger already holds. Keyed on the
+           adapter for the same reason the refusal below is: running a passing
+           blueprint through a second worker is a comparison, not a repeat. */
+        if (matchBlocked(this.ledger.findings(slug, 'passed').map((f) => f.body), domain, adapter, digest)) {
+          options.onEvent?.(`[${adapter}] ${domain} already passed its gate with this blueprint — skipping`);
+          continue;
+        }
+        const dead = this.blockedBefore(slug, domain, adapter, digest);
         if (dead) {
           throw new Error(
             `Dispatch refused: ${domain} already exhausted its attempts on "${adapter}" with this exact blueprint `
@@ -393,6 +402,7 @@ export class Harness {
 
       if (!options.dryRun) {
         if (result.passed) {
+          this.ledger.addFinding(slug, 'passed', { domain, adapter, digest: this.approvalDigest(slug) });
           const allPassed = (order.length ? order : domains).every((d) => this.ledger.domainPassed(slug, d));
           apply(this.ledger, slug, allPassed ? 'gate_pass' : 'gate_partial', null);
         } else {
@@ -445,6 +455,17 @@ export class Harness {
   }
 
   converge(slug: string): { reports: ConvergeReport[]; passed: boolean } {
+    /* Converge scores a finished build. Reaching it with domains still
+       unbuilt used to surface as `Illegal transition: cannot "converge_fail"
+       from DISPATCHED`, which names the state machine's problem rather than
+       the caller's. */
+    const pending = this.pendingDomains(slug);
+    if (pending.length) {
+      throw new Error(
+        `Converge needs every domain to have passed its gate. Still outstanding: ${pending.join(', ')}. `
+        + 'Dispatch them first, or converge once they pass.',
+      );
+    }
     this.requireProject(slug);
     const artifacts = this.artifacts(slug);
     const sources = this.ledger.sources<Source>(slug);
@@ -604,6 +625,14 @@ export class Harness {
   /** Whether this exact blueprint already exhausted its attempts on this adapter. */
   private blockedBefore(slug: string, domain: string, adapter: string, digest: string): string | null {
     return matchBlocked(this.ledger.findings(slug, 'blocked').map((f) => f.body), domain, adapter, digest);
+  }
+
+  /** Domains declared by the manifest that have not yet passed their gate. */
+  pendingDomains(slug: string): string[] {
+    const manifest = this.artifacts(slug).manifest;
+    return (manifest?.system.boundaries ?? [])
+      .map((boundary) => boundary.domain)
+      .filter((domain) => !this.ledger.domainPassed(slug, domain));
   }
 
   validate(slug: string) { return validateProject(this.ledger, slug, this.dir(slug)); }

@@ -10,6 +10,10 @@ import { renderMarkdown, buildBlueprint } from '../src/export.ts';
 import type { FetchLike } from '../src/research.ts';
 
 const SOURCE_TICTACTOE = resolve(import.meta.dirname, '..', '..', '..', 'blueprints', 'tictactoe');
+/* The reference implementation, used as the fake worker's fixture source. Its
+   layout matches core/engine's deliverables exactly, so a fixture dispatch is a
+   real pass through the real gate rather than a simulated one. */
+const FIXTURES = resolve(import.meta.dirname, '..', '..', '..', 'examples', 'tictactoe-vanilla-es6');
 
 /** A project rooted in a temp dir with the tictactoe blueprint copied in. */
 function project(): { harness: Harness; root: string } {
@@ -255,6 +259,40 @@ test('the blocked key needs the domain, the adapter and the blueprint to all mat
   // Malformed or partial records must not match by accident: a missing field
   // reading as undefined on both sides would make every lookup a refusal.
   assert.equal(matchBlocked([{}, null, { domain: 'core/engine' }], 'core/engine', 'fake', digest), null);
+});
+
+test('a domain that already passed is not dispatched again', async () => {
+  // This one costs money when it is wrong. Dispatch iterated the topological
+  // order and re-ran every domain, so a project with one passing domain paid
+  // to reproduce a result the ledger already held.
+  const harness = await approved();
+  const events: string[] = [];
+  await harness.dispatch('tictactoe', {
+    domain: 'core/engine', adapter: 'fake', maxAttempts: 1,
+    fixtureRoot: FIXTURES, onEvent: (line) => events.push(line),
+  });
+  assert.ok(harness.ledger.domainPassed('tictactoe', 'core/engine'), events.join('\n'));
+
+  const runsBefore = harness.ledger.runs('tictactoe').length;
+  await harness.dispatch('tictactoe', {
+    domain: 'core/engine', adapter: 'fake', maxAttempts: 1,
+    fixtureRoot: FIXTURES, onEvent: (line) => events.push(line),
+  });
+  assert.equal(harness.ledger.runs('tictactoe').length, runsBefore, 'no second run may be recorded');
+  assert.ok(events.some((line) => /already passed its gate with this blueprint/.test(line)),
+    events.join('\n'));
+});
+
+test('converge names the domains still outstanding instead of the state machine', () => {
+  // It used to throw `Illegal transition: cannot "converge_fail" from
+  // DISPATCHED`, which describes the harness's difficulty rather than the
+  // caller's mistake.
+  const { harness } = project();
+  harness.init('tictactoe');
+  harness.capture('tictactoe');
+  harness.ready('tictactoe');
+  harness.compile('tictactoe');
+  assert.throws(() => harness.converge('tictactoe'), /Still outstanding: core\/engine, ui\/client/);
 });
 
 test('a changed blueprint may be dispatched to the adapter it failed on', async () => {
