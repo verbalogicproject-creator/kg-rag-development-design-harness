@@ -41,6 +41,12 @@ requirements:
   - id: REQ-06
     ears: WHEN any surface renders THE SYSTEM SHALL take every colour, type, spacing and radius value from the design contract's tokens rather than from a literal.
     verified_by: [SC-07]
+  - id: REQ-07
+    ears: WHERE the application declares its styling entry THE SYSTEM SHALL import the frozen design/tailwind.theme.css from the handoff, so the shipped surface and the approved screen resolve the same tokens from one file.
+    verified_by: [SC-08]
+  - id: REQ-08
+    ears: WHEN a surface is rendered at the narrowest declared viewport THE SYSTEM SHALL recompose rather than shrink, and no surface shall scroll sideways at 360px.
+    verified_by: [SC-09]
 types: |
   import type { Opportunity, Stage } from '../core/opportunity';
   import type { Score, Profile } from '../core/match';
@@ -160,3 +166,23 @@ verification:
       when: they are scanned for colour and size values
       then: every value resolves to a design token and no literal remains
       test_name: every visual value comes from a design token
+    - id: SC-08
+      given: the application's styling entry
+      when: its import chain is read
+      then: >-
+        it reaches design/tailwind.theme.css from the frozen handoff, and
+        defines no --ls-* custom property of its own. SC-07 alone was satisfied
+        by a stylesheet that invented its own tokens and drifted from the
+        contract; only the frozen file makes the approved screen and the
+        shipped surface two renders of one source.
+      test_name: the styling entry resolves to the frozen design tokens
+    - id: SC-09
+      given: the surface at the narrowest declared viewport
+      when: its layout is measured at 360px
+      then: >-
+        nothing extends past the viewport. Measured by the design plane rather
+        than this suite, because jsdom has no layout engine and cannot answer
+        it — the built header nav was a non-wrapping flex row and scrolled the
+        page 75px sideways while every unit test passed. The approved screens
+        already recompose at 360; they are the reference.
+      test_name: no surface scrolls sideways at the narrowest declared viewport

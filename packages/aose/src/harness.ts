@@ -477,8 +477,18 @@ export class Harness {
       const upstreamTask = artifacts.tasks?.[upstream]?.task;
       if (!passing || !upstreamTask) continue;
       const from = join(this.paths.workspace, 'worktrees', slug, `${upstream.replace(/\//g, '-')}-${passing.adapter}-a${passing.attempt}`);
-      for (const file of upstreamTask.deliverables) {
-        if (file === 'package.json') continue;
+      /* The modules, not their test suites.
+         
+         What a downstream domain depends on is the upstream's declared
+         exports, and its tests are not part of that interface. Seeding them
+         cost ui/client three files of reading it did not need and forced the
+         worker to defensively narrow vitest's `include`, because otherwise the
+         runner picked up node:test files written for a different runner.
+         
+         The upstream's own spec says which file that is, so this reads a
+         declaration rather than guessing from a `test/` prefix. */
+      const upstreamSuite = artifacts.specs?.[upstream]?.verification?.test_suite;
+      for (const file of seedableFrom(upstreamTask.deliverables, upstreamSuite)) {
         seed.push({ path: file, from: join(from, file) });
       }
     }
@@ -764,4 +774,21 @@ export function readyDomains(
   hasPassed: (domain: string) => boolean,
 ): string[] {
   return [...pending].filter((domain) => depsOf(domain).every(hasPassed));
+}
+
+/**
+ * Which of an upstream domain's deliverables a downstream worker receives.
+ *
+ * Its exports, not its test suite. What a downstream domain depends on is the
+ * upstream's declared interface, and its tests are not part of that. Seeding
+ * them cost ui/client three files of reading it did not need and forced the
+ * worker to narrow vitest's `include` defensively, because otherwise the
+ * runner picked up node:test files written for a different runner.
+ *
+ * The suite is read from the upstream's own spec, so this consults a
+ * declaration rather than guessing from a `test/` prefix. package.json is
+ * excluded because the downstream owns its own.
+ */
+export function seedableFrom(deliverables: string[], testSuite: string | undefined): string[] {
+  return deliverables.filter((file) => file !== 'package.json' && !(testSuite && file === testSuite));
 }

@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, cpSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import YAML from 'yaml';
-import { Harness, matchBlocked, isSettledFailure, readyDomains } from '../src/harness.ts';
+import { Harness, matchBlocked, isSettledFailure, readyDomains, seedableFrom } from '../src/harness.ts';
 import { Ledger } from '../src/ledger.ts';
 import { renderMarkdown, buildBlueprint } from '../src/export.ts';
 import type { FetchLike } from '../src/research.ts';
@@ -505,4 +505,27 @@ test('a wave never exceeds the parallelism it was given', () => {
   // next wave rather than all launching at once.
   assert.deepEqual(ready.slice(0, 2), ['a', 'b']);
   assert.deepEqual(ready.slice(0, 1), ['a'], 'parallel 1 is the sequential behaviour that was there before');
+});
+
+test('a downstream worker receives upstream modules, not upstream test suites', () => {
+  /* ui/client was seeded with core/opportunity's, core/match's and
+   * infra/store's node:test files. It had to write
+   * `include: ['src/__tests__/**\/*.test.tsx']` into its vitest config to stop
+   * the runner picking them up — a worker working around the harness. The
+   * suite is read from the upstream's own spec rather than guessed from a
+   * `test/` prefix, so a project that puts its tests elsewhere still works. */
+  assert.deepEqual(
+    seedableFrom(['src/core/opportunity.js', 'test/opportunity.test.js'], 'test/opportunity.test.js'),
+    ['src/core/opportunity.js'],
+  );
+  // A downstream owns its own package.json, so an upstream's never travels.
+  assert.deepEqual(seedableFrom(['package.json', 'engine.js'], undefined), ['engine.js']);
+  // No declared suite means nothing to exclude; the old behaviour is intact.
+  assert.deepEqual(seedableFrom(['a.js', 'test/a.test.js'], undefined), ['a.js', 'test/a.test.js']);
+  // The suite is matched exactly, not by prefix — a deliverable that merely
+  // lives beside it still travels.
+  assert.deepEqual(
+    seedableFrom(['test/helpers.js', 'test/a.test.js'], 'test/a.test.js'),
+    ['test/helpers.js'],
+  );
 });

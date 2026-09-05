@@ -5,7 +5,7 @@ import { mkdtempSync, readFileSync, existsSync, writeFileSync, mkdirSync } from 
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { Ledger } from '../src/ledger.ts';
-import { dispatch, createWorkspace, previewCommand } from '../src/dispatch.ts';
+import { dispatch, createWorkspace, previewCommand, workerTimeout, gateTimeout, workerTurns } from '../src/dispatch.ts';
 import { runGate } from '../src/gate.ts';
 import { buildPayload, estimateTokens } from '../src/payload.ts';
 import { converge, exportsName, PLACEHOLDER, NOT_AUTHORED } from '../src/converge.ts';
@@ -258,4 +258,33 @@ test('gate side effects are not counted against the worker', () => {
   ]) {
     assert.equal(NOT_AUTHORED.test(path), false, `${path} is the worker's own output`);
   }
+});
+
+/* ---- a domain declares what it costs, instead of it living in a shell history ---- */
+
+test('a task declares its own worker budget, and the gate keeps its own clock', () => {
+  /* ui/client needed 120 turns and 40 minutes and could only be told so on the
+   * command line, so it timed out twice at the 15-minute default having written
+   * nothing — and would again for anyone re-running `aose dispatch` without
+   * knowing. The two clocks stay separate on purpose: a gate that runs
+   * `npm install && vite build && vitest` needs a few minutes, and inheriting a
+   * 40-minute worker budget would let a hung gate sit there for 40 minutes. */
+  const task = {
+    target_module: 'ui/client',
+    context: { constitution_articles: [], spec: 's.yaml', upstream_exports: {} },
+    deliverables: ['src/App.tsx'],
+    execution_gate: { command: 'npm test', success_criteria: 'exit 0', timeout_minutes: 15 },
+    budget: { max_attempts: 2, max_turns: 120, timeout_minutes: 40 },
+  } as unknown as Task;
+
+  assert.equal(workerTimeout(task, undefined), 40, 'the worker uses its declared budget');
+  assert.equal(gateTimeout(task), 15, 'the gate keeps the timeout it declares');
+  assert.equal(workerTimeout(task, 5), 5, 'an explicit flag still wins');
+
+  // Undeclared falls back to the gate's timeout, which is what it did before,
+  // so an existing blueprint behaves exactly as it always has.
+  const plain = { ...task, budget: { max_attempts: 2 } } as unknown as Task;
+  assert.equal(workerTimeout(plain, undefined), 15);
+  assert.equal(workerTurns(plain), undefined, 'no turn budget declared, no override');
+  assert.equal(workerTurns(task), 120);
 });

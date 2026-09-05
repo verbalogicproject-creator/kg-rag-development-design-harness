@@ -49,3 +49,9 @@ task:
     timeout_minutes: 15
   budget:
     max_attempts: 2
+    # Measured, not guessed. This domain has 13 deliverables and is seeded with
+    # the frozen handoff, so it reads for roughly ten minutes before it writes.
+    # At the 15-minute default it timed out twice having produced nothing; at
+    # 120 turns and 40 minutes it passed on the first attempt.
+    max_turns: 120
+    timeout_minutes: 40

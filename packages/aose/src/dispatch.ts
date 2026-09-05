@@ -150,9 +150,17 @@ export async function dispatch(ledger: Ledger, options: DispatchOptions): Promis
 
   const maxAttempts = options.maxAttempts ?? task.budget.max_attempts
     ?? constitution?.constitution.budgets.max_attempts ?? 2;
-  const timeoutMinutes = options.timeoutMinutes ?? task.execution_gate.timeout_minutes
-    ?? constitution?.constitution.budgets.timeout_minutes ?? 15;
-  const adapterOptions: AdapterOptions = { timeoutMinutes, ...(options.adapterOptions ?? {}) };
+  /* The worker's clock and the gate's clock are different budgets. A CLI flag
+     wins, then what the task declares for the worker, then the gate's own
+     timeout as the historical fallback. */
+  const gateTimeoutMinutes = gateTimeout(task);
+  const timeoutMinutes = workerTimeout(task, options.timeoutMinutes);
+  const adapterOptions: AdapterOptions = {
+    timeoutMinutes,
+    /* A declared turn budget, unless the caller overrode it. */
+    ...(workerTurns(task) ? { maxTurns: workerTurns(task) } : {}),
+    ...(options.adapterOptions ?? {}),
+  };
 
   const safeDomain = domain.replace(/\//g, '-');
   const attempts: AttemptRecord[] = [];
@@ -212,7 +220,7 @@ export async function dispatch(ledger: Ledger, options: DispatchOptions): Promis
     const finalText = (adapter === 'codex' ? readCodexLastMessage(runDir) : null) ?? parsed.finalText;
 
     onEvent(`[${adapter}] ${domain} attempt ${attempt} — worker exit ${worker.exit}${worker.timedOut ? ' (timed out)' : ''}, running gate`);
-    const gate = await runGate(task.execution_gate.command, worktree, { timeoutMinutes, runDir });
+    const gate = await runGate(task.execution_gate.command, worktree, { timeoutMinutes: gateTimeoutMinutes, runDir });
 
     ledger.finishRun(runId, {
       worker_exit: worker.exit,
@@ -255,4 +263,26 @@ export async function dispatch(ledger: Ledger, options: DispatchOptions): Promis
 
   return { domain, adapter, passed, attempts, command_preview: preview, exhausted: !passed && !dryRun,
     worktree: attempts.length ? attempts[attempts.length - 1].worktree : '' };
+}
+
+/* ------------------------------------------------------------------ */
+/* Budgets a task may declare for itself.                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Minutes the worker gets: an explicit override, then what the task declares
+ * for itself, then the gate's timeout as the historical fallback.
+ */
+export function workerTimeout(task: Task, override: number | undefined): number {
+  return override ?? task.budget?.timeout_minutes ?? gateTimeout(task);
+}
+
+/** Minutes the gate gets. Separate from the worker's, deliberately. */
+export function gateTimeout(task: Task): number {
+  return task.execution_gate.timeout_minutes ?? 15;
+}
+
+/** The turn budget a task declares, where the adapter supports one. */
+export function workerTurns(task: Task): number | undefined {
+  return task.budget?.max_turns;
 }

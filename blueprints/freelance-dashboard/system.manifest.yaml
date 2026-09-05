@@ -88,3 +88,34 @@ decisions:
       - Persist nothing in the browser and treat the CLI as the only real client —
         contradicts the premise that the dashboard is the product
     sources: []
+  - id: DEC-07
+    statement: The surface is client-rendered, so its initial paint requires scripting;
+      the contract's "Without scripting" column is read as a claim about component
+      behaviour once loaded, not about first paint.
+    rationale: >-
+      The studio's lint-build reports that the built page renders zero characters
+      with scripting disabled, and that is accurate. It is also inherent to the
+      declared target stack: target_stack.json says vite-react, and a
+      client-rendered SPA has nothing to paint before its bundle runs. The
+      contradiction was declared on both sides — a "Without scripting" column in
+      DESIGN.md and a client-rendered stack — and is recorded here rather than
+      left to be rediscovered.
+
+      Prerendering is the alternative and it is not free: ART-05 puts every row in
+      local browser storage, so there is no server that knows what to render beyond
+      an empty shell, and a hand-written static shell duplicates copy that then
+      drifts from the components. The value on offer is a faster first paint of
+      furniture, not a usable offline page.
+
+      This is a reversible decision. If a no-script first paint is wanted, it is a
+      stack change — static generation at build time — not a defect in the
+      components, and it belongs in target_stack.json where the rest of the stack
+      is declared.
+    alternatives:
+      - Prerender the shell at build time with static generation — real work, new
+        dependencies, and it renders furniture rather than data
+      - Hand-write a static shell in index.html for React to replace — cheap, and it
+        duplicates copy that drifts from the components it mirrors
+      - Move persistence to a server so there is something to render — contradicts
+        ART-05, which is the premise of the product
+    sources: []

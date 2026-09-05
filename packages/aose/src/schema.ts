@@ -421,7 +421,21 @@ export const TaskSchema = z.object({
       success_criteria: nonEmpty,
       timeout_minutes: z.number().int().min(1).max(120).optional(),
     }),
-    budget: z.object({ max_attempts: z.number().int().min(1).max(10).optional() }).default({}),
+    /* What this domain costs a worker, declared rather than remembered.
+       ui/client needed 120 turns and 40 minutes and could only be told so on
+       the command line, so it timed out twice at the 15-minute default and
+       would have again for anyone who re-ran `aose dispatch` without knowing.
+       The worker's budget is separate from the gate's on purpose: a gate that
+       runs `npm install && vite build && vitest` needs a few minutes, and
+       letting it inherit a 40-minute worker budget would let a hung gate sit
+       there for 40 minutes. */
+    budget: z.object({
+      max_attempts: z.number().int().min(1).max(10).optional(),
+      /** Turn budget for the worker, where the adapter supports one. */
+      max_turns: z.number().int().min(1).max(500).optional(),
+      /** Wall-clock minutes for the worker, distinct from execution_gate.timeout_minutes. */
+      timeout_minutes: z.number().int().min(1).max(180).optional(),
+    }).default({}),
     worker: z.string().optional(),
   }),
 });
