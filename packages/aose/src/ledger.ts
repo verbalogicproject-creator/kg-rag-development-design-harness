@@ -171,6 +171,22 @@ export class Ledger {
       .get(slug) as { approved_by: string; created_at: string; digest: string } | undefined;
   }
 
+  /**
+   * The approval that was in force at a moment in time.
+   *
+   * `activeApproval` answers "what is approved now", which is the wrong
+   * question to ask of past evidence: a later respec supersedes an approval,
+   * and comparing old runs against the current one retroactively marked work
+   * that WAS properly approved as unapproved. An approval covers a run when it
+   * was recorded before the run started and had not yet been superseded.
+   */
+  approvalInForceAt(slug: string, when: string): { approved_by: string; created_at: string; digest: string } | undefined {
+    return this.db.prepare(
+      'SELECT approved_by, created_at, digest FROM approvals WHERE slug = ? AND created_at <= ?'
+      + ' AND (superseded_at IS NULL OR superseded_at > ?) ORDER BY id DESC LIMIT 1',
+    ).get(slug, when, when) as { approved_by: string; created_at: string; digest: string } | undefined;
+  }
+
   supersedeApprovals(slug: string): void {
     this.db.prepare('UPDATE approvals SET superseded_at = ? WHERE slug = ? AND superseded_at IS NULL').run(now(), slug);
   }

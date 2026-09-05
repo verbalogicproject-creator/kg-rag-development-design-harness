@@ -235,7 +235,7 @@ test('design fidelity only appears for a domain bound to a design contract', () 
   const common = {
     domain: 'infra/feeds', worktree: root, spec: spec(), task: task().task,
     gateExit: 0, gateStdout: 'n', gateStdoutSha: 'a'.repeat(64),
-    sources: [], citedUrls: [], approvalAt: '2026-01-01', firstDispatchAt: '2026-01-02',
+    sources: [], citedUrls: [], approvalAt: '2026-01-01', dispatchedAt: '2026-01-02',
   };
   assert.equal(converge(common).pillars.length, 4);
   assert.equal(converge({ ...common, design: { bound: false, handoff_exists: false, handoff_passed_gate: null, lint_build_passed: null, lint_build_problems: [], fixture_leaks: [], screenshots: [], gate_checks: [] } }).pillars.length, 4);
@@ -268,7 +268,7 @@ test('a vacuous design check earns nothing, so it cannot bank credit it did not 
   const report = converge({
     domain: 'infra/feeds', worktree: root, spec: spec(), task: task().task,
     gateExit: 0, gateStdout: 'n', gateStdoutSha: 'a'.repeat(64),
-    sources: [], citedUrls: [], approvalAt: '2026-01-01', firstDispatchAt: '2026-01-02',
+    sources: [], citedUrls: [], approvalAt: '2026-01-01', dispatchedAt: '2026-01-02',
     design: {
       bound: true, handoff_exists: true, handoff_passed_gate: true, lint_build_passed: true,
       lint_build_problems: [], fixture_leaks: [], screenshots: [],
@@ -291,7 +291,7 @@ test('a shipped fixture value and a forced handoff both cost the design pillar',
   const report = converge({
     domain: 'infra/feeds', worktree: root, spec: spec(), task: task().task,
     gateExit: 0, gateStdout: 'n', gateStdoutSha: 'a'.repeat(64),
-    sources: [], citedUrls: [], approvalAt: '2026-01-01', firstDispatchAt: '2026-01-02',
+    sources: [], citedUrls: [], approvalAt: '2026-01-01', dispatchedAt: '2026-01-02',
     design: { bound: true, handoff_exists: true, handoff_passed_gate: false, lint_build_passed: false, lint_build_problems: ['token drift'], fixture_leaks: ['Aurora Labs'] , screenshots: [], gate_checks: [] },
   });
   const pillar = report.pillars.find((p) => p.name === 'Design fidelity')!;

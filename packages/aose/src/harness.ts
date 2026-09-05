@@ -482,7 +482,7 @@ export class Harness {
     const citedUrls = [...new Set((artifacts.manifest?.decisions ?? []).flatMap((d) => d.sources))];
     const approval = this.ledger.activeApproval(slug);
     const runs = this.ledger.runs(slug);
-    const firstDispatchAt = runs.length ? runs[0].started_at : null;
+
 
     const reports: ConvergeReport[] = [];
     for (const [domain, spec] of Object.entries(artifacts.specs ?? {})) {
@@ -504,8 +504,11 @@ export class Harness {
         gateExit: passing.gate_exit, gateStdout: stdout, gateStdoutSha: passing.gate_stdout_sha256,
         sources, citedUrls,
         allowedOrigins: (artifacts.constitution?.constitution.allowlists ?? []).flatMap((list) => list.entries),
-        approvalAt: approval?.created_at ?? null,
-        firstDispatchAt,
+        /* The approval that covered THIS run, not whatever is approved now.
+           A respec supersedes the old approval, so scoring past evidence
+           against the current one marked properly approved work unapproved. */
+        approvalAt: this.ledger.approvalInForceAt(slug, passing.started_at)?.created_at ?? null,
+        dispatchedAt: passing.started_at,
         design: this.designEvidence(slug, domain, worktree),
       }));
     }

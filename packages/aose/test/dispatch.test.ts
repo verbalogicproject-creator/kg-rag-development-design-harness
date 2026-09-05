@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { undeclaredHosts } from '../src/lint.ts';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -7,7 +8,7 @@ import { Ledger } from '../src/ledger.ts';
 import { dispatch, createWorkspace, previewCommand } from '../src/dispatch.ts';
 import { runGate } from '../src/gate.ts';
 import { buildPayload, estimateTokens } from '../src/payload.ts';
-import { converge, exportsName } from '../src/converge.ts';
+import { converge, exportsName, PLACEHOLDER, NOT_AUTHORED } from '../src/converge.ts';
 import type { Spec, Task, Constitution } from '../src/schema.ts';
 
 const FIXTURES = resolve(import.meta.dirname, 'fixtures', 'flaky');
@@ -174,7 +175,7 @@ test('converge scores a clean run at full marks and a hollow one below threshold
   const good = converge({
     domain: 'core/widget', worktree: root, spec, task,
     gateExit: 0, gateStdout: 'ok 1 - sums every item', gateStdoutSha: 'a'.repeat(64),
-    sources: [], citedUrls: [], approvalAt: '2026-01-01', firstDispatchAt: '2026-01-02',
+    sources: [], citedUrls: [], approvalAt: '2026-01-01', dispatchedAt: '2026-01-02',
   });
   assert.equal(good.passed, true);
   for (const pillar of good.pillars) assert.equal(pillar.score, 100, pillar.name);
@@ -182,7 +183,7 @@ test('converge scores a clean run at full marks and a hollow one below threshold
   const hollow = converge({
     domain: 'core/widget', worktree: mkdtempSync(join(tmpdir(), 'aose-empty-')), spec, task,
     gateExit: 1, gateStdout: '', gateStdoutSha: '',
-    sources: [], citedUrls: ['https://arxiv.org/abs/1'], approvalAt: null, firstDispatchAt: '2026-01-02',
+    sources: [], citedUrls: ['https://arxiv.org/abs/1'], approvalAt: null, dispatchedAt: '2026-01-02',
   });
   assert.equal(hollow.passed, false);
   const byName = Object.fromEntries(hollow.pillars.map((p) => [p.name, p.score]));
@@ -202,9 +203,59 @@ test('converge penalizes edits outside the declared deliverables', () => {
   const report = converge({
     domain: 'core/widget', worktree: root, spec, task,
     gateExit: 0, gateStdout: 'sums every item', gateStdoutSha: 'b'.repeat(64),
-    sources: [], citedUrls: [], approvalAt: '2026-01-01', firstDispatchAt: '2026-01-02',
+    sources: [], citedUrls: [], approvalAt: '2026-01-01', dispatchedAt: '2026-01-02',
   });
   const quality = report.pillars.find((p) => p.name === 'Code quality')!;
   assert.ok(quality.score < 100, 'an out-of-scope file must cost the run');
   assert.match(quality.components[0].detail, /sneaky\.js/);
+});
+
+/* ---- converge must measure the worker, not the harness's own side effects ---- */
+
+test('a reserved test host is not an allowlist violation', () => {
+  // https://example.test/jobs/42 appeared in a test fixture and was reported
+  // as reaching an undeclared host. RFC 2606 and RFC 6761 reserve these names
+  // so they can never resolve, and ART-06 is about what a domain can actually
+  // reach — an unroutable name reaches nothing.
+  for (const host of ['example.test', 'foo.example', 'thing.invalid', 'example.com', 'api.local']) {
+    assert.deepEqual(undeclaredHosts(`fetch('https://${host}/x')`, []), [],
+      `${host} is reserved and cannot be reached`);
+  }
+  // A real host is still caught, or the check would guard nothing.
+  assert.deepEqual(undeclaredHosts("fetch('https://upwork.com/jobs')", []), ['upwork.com']);
+  assert.deepEqual(undeclaredHosts("fetch('https://remoteok.com/api')", ['https://remoteok.com/api']), []);
+});
+
+test('the placeholder check does not fire on correct code', () => {
+  // Both of these were scored as unfinished work in the real build. The first
+  // is the HTML input attribute; the second is a worker's comment explaining
+  // how it COMPLIED with the rule against inventing content.
+  assert.equal(PLACEHOLDER.test('<input placeholder={copy.skillsHelp} />'), false);
+  assert.equal(PLACEHOLDER.test(' * no component can quietly invent placeholder content — ART-08'), false);
+  // The markers that actually mean unfinished work still fire.
+  for (const marker of ['// TODO: wire this up', '/* FIXME */', 'throw new Error("not implemented")', '// XXX', '// HACK']) {
+    assert.equal(PLACEHOLDER.test(marker), true, marker);
+  }
+});
+
+test('gate side effects are not counted against the worker', () => {
+  // ui/client's gate is `npm install && npm run build`, so node_modules/,
+  // dist/ and a lockfile exist because the HARNESS ran that command. The
+  // worker scored 0/50 for "changes stay inside deliverables" because of it,
+  // and every other domain lost 10 points to an unrelated tool's .vouch/ logs.
+  for (const path of [
+    'node_modules/.bin/x', 'dist/assets/index-abc.js', 'dist/index.html',
+    'build/main.js', 'coverage/lcov.info', 'out/x.js',
+    'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml',
+    '.vouch/reads-abc.json', 'src/.cache/x', '.next/build',
+  ]) {
+    assert.equal(NOT_AUTHORED.test(path), true, `${path} is not authored by the worker`);
+  }
+  // Real work, including files that merely live near those names, still counts.
+  for (const path of [
+    'src/App.tsx', 'src/components/PipelineBoard.tsx', 'package.json',
+    'src/distance.ts', 'src/outbox.ts', 'test/build-helpers.js',
+  ]) {
+    assert.equal(NOT_AUTHORED.test(path), false, `${path} is the worker's own output`);
+  }
 });

@@ -46,12 +46,17 @@ export interface ConvergeInput {
   /** Every origin any constitution allowlist cleared, for the egress check. */
   allowedOrigins?: string[];
   approvalAt: string | null;
-  firstDispatchAt: string | null;
+  dispatchedAt: string | null;
   design?: DesignEvidence;
   threshold?: number;
 }
 
-const PLACEHOLDER = /\b(TODO|FIXME|not implemented|unimplemented|placeholder)\b/i;
+/* Unfinished-work markers. `placeholder` used to be here and had to go: it
+   flagged `placeholder={copy.profileForm.skillsHelp}`, which is the HTML input
+   attribute, and a comment reading "no component can quietly invent placeholder
+   content — ART-08", which is a worker explaining how it COMPLIED with a rule.
+   A marker that fires on correct code is not a marker. */
+export const PLACEHOLDER = /\b(TODO|FIXME|XXX|HACK|not implemented|unimplemented)\b/;
 
 /** Does this file export the given name? */
 export function exportsName(source: string, name: string): boolean {
@@ -60,10 +65,26 @@ export function exportsName(source: string, name: string): boolean {
     || new RegExp(`export\\s*\\{[^}]*\\b${escaped}\\b[^}]*\\}`).test(source);
 }
 
+/**
+ * Paths that appear in a worktree without a worker having authored them.
+ *
+ * `changedFiles` runs after the gate, so it sees whatever the gate command
+ * produced. ui/client's gate is `npm install && npm run build`, which creates
+ * node_modules/, dist/ and a lockfile — and the worker was scored 0/50 for
+ * "changes stay inside deliverables" because the harness ran that command.
+ * An unrelated tool's read logs under .vouch/ cost every other domain 10
+ * points the same way.
+ *
+ * This is the generated-versus-authored line that LINT-33 already draws.
+ */
+export const NOT_AUTHORED = /(^|\/)(node_modules|dist|build|out|coverage|\.[^/]+)(\/|$)|^(package-lock\.json|yarn\.lock|pnpm-lock\.yaml)$/;
+
 function changedFiles(worktree: string): string[] {
   try {
     const out = execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: worktree, encoding: 'utf8' });
-    return out.split('\n').map((line) => line.slice(3).trim()).filter(Boolean).filter((f) => !f.startsWith('.aose/'));
+    return out.split('\n').map((line) => line.slice(3).trim()).filter(Boolean)
+      .filter((f) => !f.startsWith('.aose/'))
+      .filter((f) => !NOT_AUTHORED.test(f));
   } catch {
     return [];
   }
@@ -136,7 +157,11 @@ export function converge(input: ConvergeInput): ConvergeReport {
   /* ---- Pillar 4: risk and evidence ---- */
   const cited = input.citedUrls;
   const verifiedCited = cited.filter((url) => input.sources.find((s) => s.url === url)?.verified.status === 'verified');
-  const approvalFirst = Boolean(input.approvalAt && input.firstDispatchAt && input.approvalAt <= input.firstDispatchAt);
+  /* Against the run being scored, not the domain's first run ever. The
+     question is whether THIS evidence was produced under an approval; a
+     domain that failed once, was re-approved and then passed had answered it,
+     and comparing to the first attempt failed it forever. */
+  const approvalFirst = Boolean(input.approvalAt && input.dispatchedAt && input.approvalAt <= input.dispatchedAt);
 
   /* The declaration check in LINT-30 governs the blueprint. This one reads the
      code the worker actually produced, which is where an undeclared host would
@@ -153,7 +178,7 @@ export function converge(input: ConvergeInput): ConvergeReport {
       { label: 'cited sources verified', earned: cited.length === 0 ? 30 : ratio(verifiedCited.length, cited.length) * 30, possible: 30,
         detail: cited.length ? `${verifiedCited.length}/${cited.length} verified` : 'no citations to verify' },
       { label: 'approval precedes dispatch', earned: approvalFirst ? 25 : 0, possible: 25,
-        detail: approvalFirst ? 'approval recorded before first dispatch' : 'no approval recorded before dispatch' },
+        detail: approvalFirst ? 'approval recorded before the run that produced this evidence' : 'the scored run was dispatched with no approval in force' },
       { label: 'gate evidence produced by harness', earned: input.gateStdoutSha ? 25 : 0, possible: 25,
         detail: input.gateStdoutSha ? `stdout sha256 ${input.gateStdoutSha.slice(0, 12)}` : 'no harness-produced gate hash' },
       { label: 'no undeclared network host in the built code', earned: reachedHosts.length === 0 ? 20 : 0, possible: 20,

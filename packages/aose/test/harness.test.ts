@@ -389,3 +389,32 @@ test('validate replays the transition log and refuses a tampered state', () => {
   assert.equal(report.valid, false);
   assert.ok(report.errors.some((e) => /not reachable by replaying/.test(e)));
 });
+
+test('an approval covers the runs it was in force for, not the ones after it lapsed', () => {
+  /* Scoring past evidence against `activeApproval` — whatever is approved NOW
+   * — marked properly approved work as unapproved as soon as a respec
+   * superseded that approval. Five domains of the real dashboard build lost
+   * 25 points each that way, for runs that had been dispatched under a valid
+   * approval hours earlier. */
+  const ledger = new Ledger(':memory:');
+  ledger.createProject('p');
+  const db = (ledger as unknown as { db: { prepare: (sql: string) => { run: (...a: unknown[]) => void } } }).db;
+  const add = (created: string, superseded: string | null, digest: string) =>
+    db.prepare('INSERT INTO approvals (slug, approved_by, created_at, superseded_at, digest) VALUES (?,?,?,?,?)')
+      .run('p', 'someone', created, superseded, digest);
+
+  add('2026-01-02', '2026-01-05', 'first');
+  add('2026-01-08', null, 'second');
+
+  // Inside the first approval's window.
+  assert.equal(ledger.approvalInForceAt('p', '2026-01-03')?.digest, 'first');
+  // Before anything was approved.
+  assert.equal(ledger.approvalInForceAt('p', '2026-01-01'), undefined);
+  // After the first lapsed and before the second — the gap is real.
+  assert.equal(ledger.approvalInForceAt('p', '2026-01-06'), undefined);
+  // Inside the second.
+  assert.equal(ledger.approvalInForceAt('p', '2026-01-09')?.digest, 'second');
+  // And the boundary: an approval covers a run that starts at the same instant.
+  assert.equal(ledger.approvalInForceAt('p', '2026-01-02')?.digest, 'first');
+  ledger.close();
+});

@@ -711,6 +711,9 @@ export function estimatePayloadTokens(spec: Spec, task: Task['task'], constituti
  * runtime. The allowlist is a design-time and artifact-time control, not a
  * runtime sandbox, and the docs say so rather than overclaiming.
  */
+/** Names RFC 2606 and RFC 6761 reserve for documentation and testing. */
+const RESERVED_HOST = /(^|\.)(example\.(com|net|org)|invalid|localhost)$|\.(test|example|invalid|localhost|local)$/i;
+
 export function undeclaredHosts(source: string, allowedEntries: string[]): string[] {
   const allowed = new Set<string>();
   for (const entry of allowedEntries) {
@@ -721,7 +724,11 @@ export function undeclaredHosts(source: string, allowedEntries: string[]): strin
   for (const match of source.matchAll(/https?:\/\/([A-Za-z0-9.-]+(?::\d+)?)/g)) {
     const host = match[1];
     if (local.test(host) || allowed.has(host)) continue;
-    if (host.endsWith('.local') || host === 'example.com') continue;
+    /* Names reserved so they can never resolve (RFC 2606 / RFC 6761). A test
+       fixture using https://example.test/jobs/42 reaches nothing, and ART-06
+       is about what a domain can actually reach. Flagging these reported an
+       allowlist violation against a URL that is guaranteed unroutable. */
+    if (RESERVED_HOST.test(host)) continue;
     found.add(host);
   }
   return [...found];
