@@ -144,7 +144,11 @@ export function failureNote(
   if (gate.timed_out) return `gate timed out running \`${gate.command}\``;
 
   if (gate.exit_code === 0) {
-    const count = /^#\s*pass\s+(\d+)/m.exec(gate.stdout)?.[1];
+    /* Both of node --test's reporters. The TAP form is `# pass 6`; the spec
+       reporter, which is what the harness actually captures, writes `ℹ pass 6`.
+       Matching only TAP looked correct under a TAP fixture and never fired on
+       a real run — the count was silently absent from every pass note. */
+    const count = /^[#\u2139]\s*pass\s+(\d+)/m.exec(gate.stdout)?.[1];
     const where = attempt ? ` on attempt ${attempt}` : '';
     return count
       ? `gate passed${where} — ${count} test(s) via \`${gate.command}\``

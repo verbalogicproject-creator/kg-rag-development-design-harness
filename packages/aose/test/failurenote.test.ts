@@ -101,8 +101,14 @@ test('a gate that fails silently says exactly that', () => {
 });
 
 test('a pass records its test count only when the output has one', () => {
+  // Both reporters. The spec form is what a real gate produced here, and a
+  // TAP-only fixture hid that: the check passed while the count was silently
+  // missing from every pass note the harness actually wrote.
   const counted = failureNote(result({ exit_code: 0, stdout: '# pass 24\n# fail 0\n' }), { attempt: 2 });
   assert.equal(counted, 'gate passed on attempt 2 — 24 test(s) via `node --test test/opportunity.test.js`');
+
+  const spec = failureNote(result({ exit_code: 0, stdout: 'ℹ tests 6\nℹ suites 0\nℹ pass 6\nℹ fail 0\n' }), { attempt: 1 });
+  assert.equal(spec, 'gate passed on attempt 1 — 6 test(s) via `node --test test/opportunity.test.js`');
 
   const uncounted = failureNote(result({ exit_code: 0, stdout: 'ok\n' }), { attempt: 1 });
   assert.equal(uncounted, 'gate passed on attempt 1 via `node --test test/opportunity.test.js`');

@@ -17,7 +17,7 @@
     "aose": "node packages/aose/src/cli.ts",
     "lint": "node packages/aose/src/cli.ts lint blueprints/tictactoe",
     "design:check": "node packages/aose/src/cli.ts design-check freelance-dashboard",
-    "proof": "node scripts/proof.mjs",
+    "proof": "node --experimental-strip-types scripts/proof.mjs",
     "xagent": "node packages/aose/src/cli.ts xagent tictactoe --adapters claude,codex,agy",
     "kg:build": "node --experimental-strip-types packages/design-kg/src/cli.ts build",
     "kg:ask": "node --experimental-strip-types packages/design-kg/src/cli.ts"
