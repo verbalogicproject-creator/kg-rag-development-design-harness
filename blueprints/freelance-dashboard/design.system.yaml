@@ -156,6 +156,10 @@ design_system:
 
   required_states: [empty, loading, error, populated]
 
+  # Recompose, do not shrink. A surface that scrolls sideways at 360 has not
+  # recomposed; it has been squeezed.
+  viewports: [360, 768, 1440]
+
   # ── REQUIREMENTS ──────────────────────────────────────────────────────────
   # EARS, the same grammar as every functional spec. Each is verified by a
   # scenario whose test_name the gate must find in the output (ART-04).
@@ -192,6 +196,10 @@ design_system:
       ears: WHEN the token file is compared against a composite anti_direction rule THE SYSTEM SHALL keep the number of matching members below that rule's threshold, unless a justification is recorded.
       enforcement: gate
       verified_by: [DSC-08]
+    - id: DREQ-09
+      ears: WHEN a surface is rendered at any declared viewport THE SYSTEM SHALL fit within that width without horizontal overflow.
+      enforcement: gate
+      verified_by: [DSC-09]
 
   verification:
     check_suite: design/__checks__/design.test.ts
@@ -237,3 +245,8 @@ design_system:
         when: the tokens are compared against each rule's members
         then: no composite reaches its threshold without a recorded justification
         test_name: the palette trips no composite anti-pattern
+      - id: DSC-09
+        given: every screen at every declared viewport
+        when: the document's scroll width is compared to its client width
+        then: nothing extends past the edge at any width
+        test_name: no surface overflows horizontally at any declared width

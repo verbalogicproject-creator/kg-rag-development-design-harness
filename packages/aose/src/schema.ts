@@ -333,6 +333,10 @@ export const DesignSystemSchema = z.object({
       target: z.string().default('WCAG 2.2 AA'),
     }),
     required_states: z.array(nonEmpty).min(1),
+    /* The widths every surface must hold without overflowing. DESIGN.md listed
+       these as acceptance criteria in prose and nothing checked them, so they
+       are declared here where a gate can read them. */
+    viewports: z.array(z.number().int().min(200).max(4000)).min(1).default([360, 768, 1440]),
     requirements: z.array(DesignRequirementSchema).min(1),
     verification: z.object({
       check_suite: nonEmpty,

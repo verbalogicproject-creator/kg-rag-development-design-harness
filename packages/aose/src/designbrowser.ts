@@ -206,3 +206,76 @@ export function checkReducedMotion(
     findings,
   };
 }
+
+const OVERFLOW_PROBE = `
+const d = document.documentElement;
+const past = [];
+for (const el of document.querySelectorAll('*')) {
+  const r = el.getBoundingClientRect();
+  if (r.right > d.clientWidth + 1 || r.left < -1) {
+    past.push({
+      tag: el.tagName.toLowerCase(),
+      cls: (el.className || '').toString().trim().split(/\\s+/)[0].slice(0, 24),
+      right: Math.round(r.right),
+    });
+  }
+}
+document.title = JSON.stringify({ vw: d.clientWidth, sw: d.scrollWidth, past: past.slice(0, 3) });
+`;
+
+/**
+ * DSC-09 — no surface overflows horizontally at any declared viewport.
+ *
+ * DESIGN.md listed "zero horizontal overflow at 360, 768 and 1440" among its
+ * acceptance criteria, in prose, and nothing read it. The board overflowed at
+ * 360 the whole time: a tally pushed past the edge by its own auto margin,
+ * producing a sideways scrollbar nobody was measuring.
+ *
+ * The rule this defends is `recompose rather than shrink`. A surface that
+ * scrolls sideways at 360 has not recomposed; it has been squeezed, and the
+ * squeezing is only visible at the width nobody opens on a desktop.
+ */
+export function checkOverflow(
+  system: DesignSystem['design_system'],
+  dir: string,
+  surfaces: SurfaceDecl[],
+  browser = findBrowser(),
+): CheckResult {
+  const scenario = system.verification.scenarios.find((s) => s.id === 'DSC-09');
+  const base = {
+    id: 'DSC-09',
+    test_name: scenario?.test_name ?? 'no surface overflows horizontally at any declared width',
+  };
+  if (!browser) {
+    return { ...base, status: 'vacuous', detail: 'no browser available; layout cannot be measured', findings: [] };
+  }
+
+  const screens = screensOf(dir, system, surfaces);
+  const widths = system.viewports;
+  const findings: string[] = [];
+  let measured = 0;
+
+  for (const screen of screens) {
+    const name = screen.split('/').pop();
+    for (const width of widths) {
+      const result = probe(browser, screen, OVERFLOW_PROBE, [`--window-size=${width},900`]) as
+        { vw: number; sw: number; past: { tag: string; cls: string; right: number }[] } | null;
+      if (!result) { findings.push(`${name} at ${width}px: probe did not return`); continue; }
+      measured += 1;
+      if (result.sw > result.vw) {
+        const worst = result.past[0];
+        findings.push(
+          `${name} at ${width}px: scrolls to ${result.sw} in a ${result.vw} viewport`
+          + (worst ? ` — <${worst.tag}${worst.cls ? ` class="${worst.cls}"` : ''}> reaches ${worst.right}` : ''),
+        );
+      }
+    }
+  }
+
+  return {
+    ...base,
+    status: measured === 0 ? 'vacuous' : findings.length ? 'fail' : 'pass',
+    detail: `${screens.length} screen(s) measured at ${widths.join(', ')}px`,
+    findings,
+  };
+}

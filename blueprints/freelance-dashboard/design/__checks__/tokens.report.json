@@ -58,6 +58,13 @@
       "status": "pass",
       "detail": "50 animated element(s) checked across 8 screen(s)",
       "findings": []
+    },
+    {
+      "id": "DSC-09",
+      "test_name": "no surface overflows horizontally at any declared width",
+      "status": "pass",
+      "detail": "8 screen(s) measured at 360, 768, 1440px",
+      "findings": []
     }
   ],
   "contrast_failures": [],

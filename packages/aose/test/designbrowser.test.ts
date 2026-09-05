@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { checkFocusVisible, checkReducedMotion, findBrowser, probe } from '../src/designbrowser.ts';
+import { checkFocusVisible, checkReducedMotion, checkOverflow, findBrowser, probe } from '../src/designbrowser.ts';
 import { loadDesignSystem, checkStates, screenFor } from '../src/designcheck.ts';
 
 const DIR = 'blueprints/freelance-dashboard';
@@ -148,4 +148,52 @@ test('probe leaves the screen it tested unmodified', { skip: browser ? false : '
   const before = readFileSync(path, 'utf8');
   probe(browser!, path, 'document.title = JSON.stringify({ok:true});');
   assert.equal(readFileSync(path, 'utf8'), before, 'testing a screen must not edit it');
+});
+
+/* ---- DSC-09: horizontal overflow ---- */
+
+test('DSC-09 reports vacuous, never pass, with no browser', () => {
+  const result = checkOverflow(loadDesignSystem(DIR), DIR, SURFACES, null);
+  assert.equal(result.status, 'vacuous');
+  assert.match(result.detail, /no browser available/);
+});
+
+test('DSC-09 catches a surface that scrolls sideways at a narrow width', {
+  skip: browser ? false : 'no chromium cached',
+}, () => {
+  // The real bug, reproduced: a header row that cannot wrap, with an element
+  // pushed past the edge by its own auto margin. It is invisible at 1440 and
+  // produces a scrollbar at 360 — the width nobody opens on a desktop.
+  const dir = surfaceDir({
+    'board.html': `<html><body><style>
+      body { margin: 0; }
+      .head { display: flex; gap: 16px; flex-wrap: nowrap; }
+      .head > * { flex: 0 0 auto; white-space: nowrap; margin: 0; }
+      .tally { margin-inline-start: auto; }
+    </style><div class="head"><h2>A rather long heading indeed</h2><button>Add opportunity</button><p class="tally">4 open &middot; $12,400 in play</p></div></body></html>`,
+  });
+  const system = structuredClone(loadDesignSystem(DIR));
+  system.viewports = [360, 1440];
+
+  const result = checkOverflow(system, dir, [{ id: 'board', states: ['populated'] }], browser!);
+  assert.equal(result.status, 'fail');
+  assert.ok(result.findings.some((f) => /at 360px: scrolls to \d+ in a \d+ viewport/.test(f)),
+    `expected a 360px overflow finding, got: ${result.findings.join(' | ')}`);
+  assert.equal(result.findings.some((f) => /at 1440px/.test(f)), false,
+    'and it must not fire at a width where the layout fits');
+});
+
+test('the shipped screens fit every declared viewport', {
+  skip: browser ? false : 'no chromium cached',
+}, () => {
+  const system = loadDesignSystem(DIR);
+  const result = checkOverflow(system, DIR, [
+    { id: 'pipeline-board', states: ['empty', 'populated'] },
+    { id: 'scout-inbox', states: ['empty', 'populated'] },
+    { id: 'opportunity-detail', states: ['empty', 'populated'] },
+    { id: 'profile', states: ['empty', 'populated'] },
+  ], browser!);
+
+  assert.equal(result.status, 'pass', result.findings.join('\n'));
+  assert.match(result.detail, /8 screen\(s\) measured at 360, 768, 1440px/);
 });

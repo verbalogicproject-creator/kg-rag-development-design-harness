@@ -1,3 +1,11 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pipeline board — empty</title>
+<link rel="stylesheet" href="../tokens.css">
+<style data-inlined="screen.css">
 /*
   screen.css — shared structure for the token-driven screens.
 
@@ -463,3 +471,78 @@ main { padding: var(--ls-space-md); flex: 1; }
     transition-duration: 0ms;
   }
 }
+
+</style>
+</head>
+<body>
+<!--
+  REQ-04 and DREQ-03: an empty surface names the next action and renders no
+  placeholder row. The decision here is that the empty state IS the tool — the
+  paste box and the scout button live inside the empty column, so week one is
+  productive rather than decorative. No illustration, no encouragement copy: a
+  pipeline that is empty because you just started is a fact, not a setback.
+-->
+<div class="shell">
+  <header class="topbar">
+    <h1 class="wordmark">Pipeline</h1>
+    <nav class="nav" aria-label="Surfaces">
+      <a href="pipeline-board.html" aria-current="page">Board</a>
+      <a href="scout-inbox.html">Inbox</a>
+      <a href="profile.html">Profile</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="page-head">
+      <h2>Opportunities</h2>
+      <p class="tally">Nothing tracked yet</p>
+    </div>
+
+    <div class="empty">
+      <p>Paste a job post and the parser will pull out the title, budget, rate and skills. Anything it cannot read, it will say so rather than guess.</p>
+      <label for="paste" class="visually-hidden-label">Job post text</label>
+      <textarea id="paste" rows="3" placeholder="Paste the post here"></textarea>
+      <div class="row">
+        <button type="button" class="action">Add opportunity</button>
+        <span class="or">or</span>
+        <button type="button" class="action quiet">Run scout · 4 sources</button>
+      </div>
+    </div>
+
+    <div class="board">
+      <section class="column" aria-labelledby="e-lead">
+        <div class="column-head">
+          <h3 id="e-lead">Lead</h3>
+          <span class="count">0</span>
+        </div>
+        <p class="tally">Added and scouted opportunities start here.</p>
+      </section>
+
+      <section class="column" aria-labelledby="e-drafting">
+        <div class="column-head">
+          <h3 id="e-drafting">Drafting</h3>
+          <span class="count">0</span>
+        </div>
+        <p class="tally">Proposals you are writing land here.</p>
+      </section>
+
+      <section class="column" aria-labelledby="e-sent">
+        <div class="column-head">
+          <h3 id="e-sent">Sent</h3>
+          <span class="count">0</span>
+        </div>
+        <p class="tally">Sent proposals wait here for a reply.</p>
+      </section>
+
+      <section class="column" aria-labelledby="e-won">
+        <div class="column-head">
+          <h3 id="e-won">Won</h3>
+          <span class="count">0</span>
+        </div>
+        <p class="tally">Nothing here yet.</p>
+      </section>
+    </div>
+  </main>
+</div>
+</body>
+</html>

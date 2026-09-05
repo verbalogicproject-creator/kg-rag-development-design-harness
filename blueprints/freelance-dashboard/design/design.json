@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "rev": 11,
-  "seq": 10,
+  "rev": 21,
+  "seq": 20,
   "project": {
     "name": "Freelance Dashboard",
     "slug": "freelance-dashboard",
@@ -64,12 +64,12 @@
         "kind": "agent",
         "prompt": "Board with one column per pipeline stage; fit score as the signature object; Add opportunity as the single accent action."
       },
-      "revision": 1,
+      "revision": 2,
       "files": {
-        "html": "screens/pipeline-board-populated/r1/code.html",
-        "png": "screens/pipeline-board-populated/r1/screen.png",
+        "html": "screens/pipeline-board-populated/r2/code.html",
+        "png": "screens/pipeline-board-populated/r2/screen.png",
         "sha256": {
-          "html": "7c478a96b3393a91771a1931c027f016e99b59be8b62286d342e3a9aae0dcb0c",
+          "html": "8c1ca79e962d9020ed3878e8caa780a38756fba15e2004a3d73397581e389867",
           "png": "2e2312b65fb92c5ed498cd9538907cfb86905db09e953ac4885a4a71b311667d"
         }
       },
@@ -96,12 +96,12 @@
         "kind": "agent",
         "prompt": "REQ-04: the empty state IS the tool — paste box and scout button above the board, no placeholder rows, column hints as a legend."
       },
-      "revision": 1,
+      "revision": 2,
       "files": {
-        "html": "screens/pipeline-board-empty/r1/code.html",
-        "png": "screens/pipeline-board-empty/r1/screen.png",
+        "html": "screens/pipeline-board-empty/r2/code.html",
+        "png": "screens/pipeline-board-empty/r2/screen.png",
         "sha256": {
-          "html": "5c3498433693448f238b045e0ebe56860ec5166b5ed179a3a53c138bd553ee4c",
+          "html": "16379e1dd4738ee2c3ae5fcc73a6af772b90c4d645f6f596e49355ab073357b2",
           "png": "6c4370fd994f02f531a88ad3aff2f146a1bdf4e8f0418a22b7526ad9b6195eb1"
         }
       },
@@ -128,12 +128,12 @@
         "kind": "agent",
         "prompt": "Listings ranked by fit with reasons hung off the row they explain; Track/Dismiss triage; per-source outcomes including the failure."
       },
-      "revision": 1,
+      "revision": 2,
       "files": {
-        "html": "screens/scout-inbox-populated/r1/code.html",
-        "png": "screens/scout-inbox-populated/r1/screen.png",
+        "html": "screens/scout-inbox-populated/r2/code.html",
+        "png": "screens/scout-inbox-populated/r2/screen.png",
         "sha256": {
-          "html": "814112abcbc8f2c044e03ad6297e8b83f109f3d87fba222a436d2819dfb4b0ba",
+          "html": "c1b105407dfd216e587c0222dd231e2df312c266d79d2534077daec7fcb05e31",
           "png": "70f237251447430782c594f83fc7c5f9b0d1dc4e45b691814e6cdfda05a5ceb7"
         }
       },
@@ -160,12 +160,12 @@
         "kind": "agent",
         "prompt": "Reveals the dependency rather than hiding it: scoring needs a profile, so an unrun scout says so."
       },
-      "revision": 1,
+      "revision": 2,
       "files": {
-        "html": "screens/scout-inbox-empty/r1/code.html",
-        "png": "screens/scout-inbox-empty/r1/screen.png",
+        "html": "screens/scout-inbox-empty/r2/code.html",
+        "png": "screens/scout-inbox-empty/r2/screen.png",
         "sha256": {
-          "html": "156420a620b04853a6cd3a4fb506fcee3e64111eccbdac607afc6c1236a4071b",
+          "html": "e8678bf860fb386a248f7c47ab64561f5dde6c0f5487f179a886c55d69b1f699",
           "png": "f8d93d1fe4a8deacdf4af14c0106b539933639b899dc21edab42a87fb2f02502"
         }
       },
@@ -192,12 +192,12 @@
         "kind": "agent",
         "prompt": "The editorial counterpoint: reads as a document. Stage spine, the fit object expanded into its reasons, and absent fields rendered as absent rather than filled."
       },
-      "revision": 1,
+      "revision": 2,
       "files": {
-        "html": "screens/opportunity-detail-populated/r1/code.html",
-        "png": "screens/opportunity-detail-populated/r1/screen.png",
+        "html": "screens/opportunity-detail-populated/r2/code.html",
+        "png": "screens/opportunity-detail-populated/r2/screen.png",
         "sha256": {
-          "html": "c53914cbd3a133090bdcb0938734d04892d12ca91d34b2301cc053812cb51825",
+          "html": "4da1a3bd002b266b1cc200431806ac2969572ca01e62e902af10c3c4cfc2537d",
           "png": "cbe2b330ec562a7b26d038e42bda427e7c1a548d3c2d9b3bd6ce378ffb5359ea"
         }
       },
@@ -224,12 +224,12 @@
         "kind": "agent",
         "prompt": "For a detail surface, empty means the record is gone. States the fact and offers the way back; invents no plausible record to fill the page."
       },
-      "revision": 1,
+      "revision": 2,
       "files": {
-        "html": "screens/opportunity-detail-not-found/r1/code.html",
-        "png": "screens/opportunity-detail-not-found/r1/screen.png",
+        "html": "screens/opportunity-detail-not-found/r2/code.html",
+        "png": "screens/opportunity-detail-not-found/r2/screen.png",
         "sha256": {
-          "html": "8cacb13ced46043adf71274437073dfc9483c9846efe194c9dc86f8c8a9de754",
+          "html": "d95031229ce0b496252dba11fc0fe0fd16dd65baf170e81342543659fe87cc33",
           "png": "5212dc46ae47f729e1449ebd76f19dd043cd66dcd23814d1f0fe25f7e5e316a6"
         }
       },
@@ -256,12 +256,12 @@
         "kind": "agent",
         "prompt": "The four answers every fit score is computed against, said as such rather than presented as settings."
       },
-      "revision": 1,
+      "revision": 2,
       "files": {
-        "html": "screens/profile-populated/r1/code.html",
-        "png": "screens/profile-populated/r1/screen.png",
+        "html": "screens/profile-populated/r2/code.html",
+        "png": "screens/profile-populated/r2/screen.png",
         "sha256": {
-          "html": "61afcce20f11dc70c8dcb298f37d34c392beed6208d01a4249ed70935ba17d9b",
+          "html": "46cd2398899f6e63f8b92f5b016a6d65fd3f74afbec652122da4ffaffacc8267",
           "png": "b57de9ff34f60b411433a2c30dd4989f4826547aff0eb678eaf5a0f3682b6229"
         }
       },
@@ -273,8 +273,8 @@
       "staleTokens": false,
       "capturedTokensHash": "44c95ecdc528ed9990c3d52110ccb711924d3eafe21cd651efec4b018ab31bff",
       "canvas": {
-        "x": 3120,
-        "y": 1020
+        "x": 3070.710952910935,
+        "y": 1093.5755122255482
       }
     },
     {
@@ -288,12 +288,12 @@
         "kind": "agent",
         "prompt": "Blank fields with placeholders that describe the shape of an answer and submit nothing. ART-08: never invented defaults."
       },
-      "revision": 1,
+      "revision": 2,
       "files": {
-        "html": "screens/profile-empty/r1/code.html",
-        "png": "screens/profile-empty/r1/screen.png",
+        "html": "screens/profile-empty/r2/code.html",
+        "png": "screens/profile-empty/r2/screen.png",
         "sha256": {
-          "html": "0973b9f4b2079f09a496f0cf1276cd687ef6c44af6adc5661b96ce14a072e0cc",
+          "html": "f41ed6a1aa9cb5235deb2b6e792fc902e561677df82abdc201e821a158bcf208",
           "png": "b4205b0a250ae1d3327c933f452217ff77c1b561835372113590f09fed1094bd"
         }
       },
@@ -399,6 +399,98 @@
       "data": {
         "screenId": "scr_4ffe7da8",
         "slug": "profile-empty"
+      }
+    },
+    {
+      "seq": 11,
+      "at": "2026-09-05T09:04:40.464Z",
+      "type": "canvas_moved",
+      "data": {
+        "screenId": "scr_58390e82",
+        "x": 2347.706565577139,
+        "y": 1334.5126286925001
+      }
+    },
+    {
+      "seq": 12,
+      "at": "2026-09-05T09:09:47.291Z",
+      "type": "canvas_moved",
+      "data": {
+        "screenId": "scr_58390e82",
+        "x": 3070.710952910935,
+        "y": 1093.5755122255482
+      }
+    },
+    {
+      "seq": 13,
+      "at": "2026-09-05T09:10:07.290Z",
+      "type": "screen_updated",
+      "data": {
+        "screenId": "scr_7687f65b",
+        "revision": 2
+      }
+    },
+    {
+      "seq": 14,
+      "at": "2026-09-05T09:10:15.792Z",
+      "type": "screen_updated",
+      "data": {
+        "screenId": "scr_26fb0890",
+        "revision": 2
+      }
+    },
+    {
+      "seq": 15,
+      "at": "2026-09-05T09:10:18.180Z",
+      "type": "screen_updated",
+      "data": {
+        "screenId": "scr_cc2e80b2",
+        "revision": 2
+      }
+    },
+    {
+      "seq": 16,
+      "at": "2026-09-05T09:10:20.264Z",
+      "type": "screen_updated",
+      "data": {
+        "screenId": "scr_bdebfd6f",
+        "revision": 2
+      }
+    },
+    {
+      "seq": 17,
+      "at": "2026-09-05T09:10:22.492Z",
+      "type": "screen_updated",
+      "data": {
+        "screenId": "scr_a181a085",
+        "revision": 2
+      }
+    },
+    {
+      "seq": 18,
+      "at": "2026-09-05T09:10:30.570Z",
+      "type": "screen_updated",
+      "data": {
+        "screenId": "scr_d2a67403",
+        "revision": 2
+      }
+    },
+    {
+      "seq": 19,
+      "at": "2026-09-05T09:10:33.076Z",
+      "type": "screen_updated",
+      "data": {
+        "screenId": "scr_58390e82",
+        "revision": 2
+      }
+    },
+    {
+      "seq": 20,
+      "at": "2026-09-05T09:10:35.292Z",
+      "type": "screen_updated",
+      "data": {
+        "screenId": "scr_4ffe7da8",
+        "revision": 2
       }
     }
   ],

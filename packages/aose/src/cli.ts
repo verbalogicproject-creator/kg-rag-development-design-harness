@@ -14,7 +14,7 @@ import { Harness } from './harness.ts';
 import { lintDir } from './lint.ts';
 import { formatConverge } from './converge.ts';
 import { designCheck, formatReport, loadDesignSystem } from './designcheck.ts';
-import { checkFocusVisible, checkReducedMotion } from './designbrowser.ts';
+import { checkFocusVisible, checkReducedMotion, checkOverflow } from './designbrowser.ts';
 import { ADAPTERS } from './adapters/index.ts';
 
 const USAGE = `aose — Agent-Oriented Software Engineering harness v2
@@ -190,7 +190,11 @@ try {
         return (spec?.design?.surfaces ?? []).map((entry: unknown) =>
           typeof entry === 'string' ? { id: entry } : entry as { id: string; states?: string[] });
       });
-      report.checks.push(checkFocusVisible(system, dir, surfaces), checkReducedMotion(system, dir, surfaces));
+      report.checks.push(
+        checkFocusVisible(system, dir, surfaces),
+        checkReducedMotion(system, dir, surfaces),
+        checkOverflow(system, dir, surfaces),
+      );
       report.ok = report.checks.every((check) => check.status !== 'fail');
 
       const out = join(dir, 'design', '__checks__');
